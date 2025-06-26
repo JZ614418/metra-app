@@ -42,4 +42,10 @@ htmlcov/
 *.bak
 .cache/
 tmp/
-temp/ 
+temp/
+
+# Sensitive files
+deploy-config.md
+**/example.env
+API_KEYS_CHECKLIST.md
+Metra_Tech_Requirements.md 
