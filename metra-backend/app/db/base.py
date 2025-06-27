@@ -9,6 +9,8 @@ database_url = settings.DATABASE_URL
 # 处理 Railway 的 postgres:// URL
 if database_url and database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
+elif database_url and database_url.startswith("postgresql://"):
+    database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 elif not database_url:
     # 开发环境使用 SQLite
     database_url = "sqlite+aiosqlite:///./test.db"
