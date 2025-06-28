@@ -17,6 +17,8 @@ async def init_db():
     # Handle Railway's postgres:// URL
     if database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif database_url.startswith("postgresql://"):
+        database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
     
     print(f"Connecting to database...")
     
