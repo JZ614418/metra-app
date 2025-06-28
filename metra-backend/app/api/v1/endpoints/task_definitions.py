@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 from app.db.base import get_db
 from app.models import User, Conversation, TaskDefinition as TaskDefinitionModel
 from app.schemas.conversation import TaskDefinitionCreate, TaskDefinition
-from app.api.v1.endpoints.auth import get_current_user
+from app.services.auth import get_current_user
 from app.services.openai_service import OpenAIService
 
 router = APIRouter()

@@ -87,4 +87,11 @@ async def get_current_active_user(
 ) -> User:
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
-    return current_user 
+    return current_user
+
+async def update_last_login(db: AsyncSession, user_id: str):
+    """Update user's last login timestamp."""
+    user = await get_user_by_email(db, user_id)
+    if user:
+        user.last_login_at = datetime.utcnow()
+        await db.commit() 

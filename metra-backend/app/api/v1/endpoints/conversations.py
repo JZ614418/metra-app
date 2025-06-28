@@ -13,7 +13,7 @@ from app.schemas.conversation import (
     ConversationList, ConversationUpdate,
     MessageCreate, Message as MessageSchema
 )
-from app.api.v1.endpoints.auth import get_current_user
+from app.services.auth import get_current_user
 from app.services.openai_service import OpenAIService
 
 router = APIRouter()
