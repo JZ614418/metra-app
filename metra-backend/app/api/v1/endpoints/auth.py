@@ -1,5 +1,5 @@
 from datetime import timedelta
-from typing import Any
+from typing import Any, Annotated
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,13 +9,13 @@ from app.core.config import settings
 from app.core.security import create_access_token
 from app.db.base import get_db
 from app.schemas.token import Token
-from app.schemas.user import UserCreate, User, UserUpdate, UserUsageStats
+from app.schemas.user import UserCreate, User, UserUpdate, UserUsageStats, UserPublic, UserLogin
 from app.services import auth as auth_service
 import resend
 
 router = APIRouter()
 
-@router.post("/register", response_model=User)
+@router.post("/register", response_model=UserPublic)
 async def register(
     *,
     db: AsyncSession = Depends(get_db),
@@ -42,14 +42,9 @@ async def register(
     return user
 
 @router.post("/login", response_model=Token)
-async def login(
-    db: AsyncSession = Depends(get_db),
-    form_data: OAuth2PasswordRequestForm = Depends()
-) -> Any:
+async def login_for_access_token(form_data: UserLogin):
     """OAuth2 compatible token login"""
-    user = await auth_service.authenticate_user(
-        db, email=form_data.username, password=form_data.password
-    )
+    user = await auth_service.authenticate_user(form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -61,12 +56,9 @@ async def login(
     
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        subject=str(user.id), expires_delta=access_token_expires
+        data={"sub": str(user.id)}, expires_delta=access_token_expires
     )
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-    }
+    return {"access_token": access_token, "token_type": "bearer"}
 
 @router.get("/me", response_model=User)
 async def read_users_me(
