@@ -1,6 +1,6 @@
 import { useAuthStore } from '@/stores/authStore'
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://metra-backend-production.up.railway.app/api/v1'
+const API_URL = import.meta.env.VITE_API_URL || 'https://backend-api-production-e944.up.railway.app/api/v1'
 
 interface User {
   id: string
@@ -57,6 +57,7 @@ class ApiClient {
       body: JSON.stringify({
         email,
         password,
+        username: email.split('@')[0],
         full_name: fullName,
         invitation_code: invitationCode,
       }),
@@ -70,7 +71,7 @@ class ApiClient {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        username: email,
+        email: email,
         password: password,
       }),
     })
