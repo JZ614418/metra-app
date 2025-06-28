@@ -50,4 +50,7 @@ async def get_db():
             await session.close()
 
 # Import all models here to ensure they are registered with Base
-from app.models.user import User  # noqa 
+from app.models.user import User, InviteCode  # noqa
+from app.models.conversation import Conversation  # noqa
+from app.models.message import Message  # noqa
+from app.models.task_definition import TaskDefinition  # noqa 

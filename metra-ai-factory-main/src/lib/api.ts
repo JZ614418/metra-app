@@ -51,25 +51,28 @@ class ApiClient {
   }
 
   // Auth endpoints
-  async register(email: string, password: string, fullName?: string) {
+  async register(email: string, password: string, fullName?: string, invitationCode?: string) {
     return this.request<User>('/auth/register', {
       method: 'POST',
       body: JSON.stringify({
         email,
         password,
         full_name: fullName,
+        invitation_code: invitationCode,
       }),
     })
   }
 
   async login(email: string, password: string) {
-    const formData = new FormData()
-    formData.append('username', email)
-    formData.append('password', password)
-
     const response = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
-      body: formData,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        username: email,
+        password: password,
+      }),
     })
 
     if (!response.ok) {

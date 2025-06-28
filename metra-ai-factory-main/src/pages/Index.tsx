@@ -2,10 +2,19 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowRight, Database, Brain, Cpu, Globe, Sparkles, Code, Upload, Bot, Zap, Target, BarChart, MessageSquare } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { ArrowRight, Database, Brain, Cpu, Globe, Sparkles, Code, Upload, Bot, Zap, Target, BarChart, MessageSquare, User } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuthStore } from '@/stores/authStore';
 
 const Index = () => {
+  const { user, logout } = useAuthStore();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
   const coreModules = [
     {
       icon: MessageSquare,
@@ -118,12 +127,30 @@ const Index = () => {
               <a href="#docs" className="text-gray-600 hover:text-gray-900 text-sm">Docs</a>
             </nav>
             <div className="flex items-center space-x-3">
-              <Button variant="ghost" size="sm">Sign In</Button>
-              <Link to="/dashboard">
-                <Button size="sm" className="bg-gray-900 hover:bg-gray-800 text-white">
-                  Get Started
-                </Button>
-              </Link>
+              {user ? (
+                <>
+                  <Link to="/dashboard">
+                    <Button variant="ghost" size="sm" className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      {user.full_name || user.email}
+                    </Button>
+                  </Link>
+                  <Button variant="ghost" size="sm" onClick={handleLogout}>
+                    Logout
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Link to="/login">
+                    <Button variant="ghost" size="sm">Sign In</Button>
+                  </Link>
+                  <Link to="/register">
+                    <Button size="sm" className="bg-gray-900 hover:bg-gray-800 text-white">
+                      Get Started
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>

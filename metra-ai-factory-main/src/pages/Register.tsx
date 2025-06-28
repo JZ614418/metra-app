@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -10,12 +10,14 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/components/ui/use-toast'
 import { api } from '@/lib/api'
+import { useAuthStore } from '@/stores/authStore'
 
 const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string(),
   fullName: z.string().optional(),
+  invitationCode: z.string().min(1, 'Invitation code is required'),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ['confirmPassword'],
@@ -27,6 +29,14 @@ export default function Register() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
+  const { user, token } = useAuthStore()
+
+  // 如果已登录，重定向到 dashboard
+  useEffect(() => {
+    if (user && token) {
+      navigate('/dashboard')
+    }
+  }, [user, token, navigate])
 
   const {
     register,
@@ -39,7 +49,7 @@ export default function Register() {
   const onSubmit = async (data: RegisterForm) => {
     setIsLoading(true)
     try {
-      await api.register(data.email, data.password, data.fullName)
+      await api.register(data.email, data.password, data.fullName, data.invitationCode)
       
       toast({
         title: 'Account created!',
@@ -115,6 +125,19 @@ export default function Register() {
               />
               {errors.confirmPassword && (
                 <p className="text-sm text-red-500">{errors.confirmPassword.message}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="invitationCode">Invitation Code</Label>
+              <Input
+                id="invitationCode"
+                type="text"
+                placeholder="Enter your invitation code"
+                {...register('invitationCode')}
+                disabled={isLoading}
+              />
+              {errors.invitationCode && (
+                <p className="text-sm text-red-500">{errors.invitationCode.message}</p>
               )}
             </div>
             <Button

@@ -1,6 +1,7 @@
-from typing import Optional, UUID
+from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel, EmailStr
+from uuid import UUID
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -9,6 +10,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    invitation_code: str
 
 class UserUpdate(UserBase):
     password: Optional[str] = None
@@ -26,6 +28,9 @@ class UserInDBBase(UserBase):
         from_attributes = True
 
 class User(UserInDBBase):
+    pass
+
+class UserPublic(UserInDBBase):
     pass
 
 class UserInDB(UserInDBBase):

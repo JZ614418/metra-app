@@ -2,6 +2,7 @@ import React from 'react';
 import { MessageSquare, Layers, Database, Sparkles, Rocket, Package, Store, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
+import { useAuthStore } from '@/stores/authStore';
 
 interface SidebarProps {
   activeSection: string;
@@ -9,6 +10,8 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ activeSection, setActiveSection }: SidebarProps) => {
+  const { user } = useAuthStore();
+
   const menuItems = [
     {
       id: 'prompt-schema',
@@ -114,17 +117,17 @@ const Sidebar = ({ activeSection, setActiveSection }: SidebarProps) => {
           </div>
 
         {/* User Section */}
-        <div className="p-6 border-t border-gray-200">
+        <div className="border-t border-gray-200">
               <button
                 onClick={() => setActiveSection('profile')}
-            className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-3 w-full p-6 hover:bg-gray-50 transition-colors"
           >
             <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
               <User className="h-5 w-5 text-gray-600" />
                 </div>
             <div className="text-left">
-              <div className="font-medium text-gray-900">John Doe</div>
-              <div className="text-xs text-gray-500">john@example.com</div>
+              <div className="font-medium text-gray-900">{user?.full_name || 'User'}</div>
+              <div className="text-xs text-gray-500">{user?.email}</div>
             </div>
           </button>
         </div>

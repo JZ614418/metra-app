@@ -23,6 +23,14 @@ async def register(
     background_tasks: BackgroundTasks
 ) -> Any:
     """Register new user"""
+    # 验证邀请码
+    valid_invitation_codes = ["METRA2024", "EARLY2024", "BETA2024"]  # 有效的邀请码列表
+    if user_in.invitation_code not in valid_invitation_codes:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid invitation code. Registration requires a valid invitation code.",
+        )
+    
     user = await auth_service.get_user_by_email(db, email=user_in.email)
     if user:
         raise HTTPException(
@@ -42,9 +50,12 @@ async def register(
     return user
 
 @router.post("/login", response_model=Token)
-async def login_for_access_token(form_data: UserLogin):
+async def login_for_access_token(
+    form_data: UserLogin,
+    db: AsyncSession = Depends(get_db)
+):
     """OAuth2 compatible token login"""
-    user = await auth_service.authenticate_user(form_data.username, form_data.password)
+    user = await auth_service.authenticate_user(db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

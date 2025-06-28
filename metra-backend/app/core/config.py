@@ -1,6 +1,6 @@
 from typing import List, Optional, Union
 from pydantic_settings import BaseSettings
-from pydantic import AnyHttpUrl, validator
+from pydantic import AnyHttpUrl, validator, Field
 import os
 
 class Settings(BaseSettings):
@@ -21,7 +21,10 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     
     # Database
-    DATABASE_URL: Optional[str] = None
+    DATABASE_URL: str = Field(
+        default="sqlite+aiosqlite:///./test.db",
+        env="DATABASE_URL"
+    )
     SUPABASE_URL: Optional[str] = None
     SUPABASE_ANON_KEY: Optional[str] = None
     SUPABASE_SERVICE_KEY: Optional[str] = None
@@ -31,7 +34,10 @@ class Settings(BaseSettings):
     UPSTASH_REDIS_REST_TOKEN: Optional[str] = None
     
     # API Keys
-    OPENAI_API_KEY: Optional[str] = None
+    OPENAI_API_KEY: str = Field(
+        default="",
+        env="OPENAI_API_KEY"
+    )
     OPENAI_ORG_ID: Optional[str] = None
     HUGGINGFACE_TOKEN: Optional[str] = None
     REPLICATE_API_TOKEN: Optional[str] = None
