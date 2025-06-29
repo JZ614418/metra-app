@@ -1,20 +1,9 @@
 {
-  "env": {
-    "VITE_API_URL": "https://backend-api-production-e944.up.railway.app/api/v1",
-    "VITE_SUPABASE_URL": "https://lcoxwbeeuukryxtdfljc.supabase.co",
-    "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  },
-  "build": {
-    "env": {
-      "VITE_API_URL": "https://backend-api-production-e944.up.railway.app/api/v1",
-      "VITE_SUPABASE_URL": "https://lcoxwbeeuukryxtdfljc.supabase.co",
-      "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-    }
-  },
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "framework": "vite",
   "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://backend-api-production-e944.up.railway.app/api/v1/:path*"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"

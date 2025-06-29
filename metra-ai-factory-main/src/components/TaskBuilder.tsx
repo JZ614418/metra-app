@@ -33,11 +33,16 @@ const TaskBuilder = () => {
   useEffect(() => {
     const initConversation = async () => {
       if (!currentConversation) {
-        await createConversation();
+        try {
+          await createConversation();
+        } catch (error) {
+          console.error("Failed to initialize conversation:", error);
+          // The error will be set in the store, and the UI will display it.
+        }
       }
     };
     initConversation();
-  }, []);
+  }, [createConversation, currentConversation]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -67,7 +72,14 @@ const TaskBuilder = () => {
   }, [currentConversation]);
 
   const handleSendMessage = async () => {
-    if (!currentInput.trim() || !currentConversation || isStreaming) return;
+    if (!currentInput.trim() || !currentConversation || isStreaming) {
+      console.warn("SendMessage cancelled: ", {
+        input: !currentInput.trim(),
+        conv: !currentConversation,
+        streaming: isStreaming,
+      });
+      return;
+    }
 
     const message = currentInput;
     setCurrentInput('');

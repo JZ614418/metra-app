@@ -1,6 +1,6 @@
 import { useAuthStore } from '@/stores/authStore'
 
-const API_URL = import.meta.env.VITE_API_URL
+const API_URL = '/api' // All requests will now go to /api, which will be proxied by Vercel
 
 interface User {
   id: string
@@ -26,7 +26,8 @@ class ApiClient {
 
   async request<T>(
     endpoint: string, 
-    options: RequestInit = {}
+    options: RequestInit = {},
+    isStream: boolean = false
   ): Promise<T> {
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...options,
@@ -47,14 +48,18 @@ class ApiClient {
       throw new Error(error.detail || 'Something went wrong')
     }
 
+    if (isStream) {
+      return response.body as T;
+    }
+
     return response.json()
   }
 
-  async post<T>(endpoint: string, data: any) {
+  async post<T>(endpoint: string, data: any, isStream = false) {
     return this.request<T>(endpoint, {
       method: 'POST',
       body: JSON.stringify(data),
-    });
+    }, isStream);
   }
 
   // Auth endpoints
