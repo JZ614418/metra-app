@@ -124,9 +124,6 @@ const TaskBuilder = () => {
     ));
   };
 
-  const lastMessage = currentConversation?.messages[currentConversation.messages.length - 1];
-  const isAiTyping = isStreaming && lastMessage?.role === 'assistant';
-
   return (
     <div className="p-8 space-y-6 max-w-5xl mx-auto">
       {/* Error Alert */}
@@ -171,32 +168,45 @@ const TaskBuilder = () => {
         <CardContent>
           {/* Chat messages */}
           <div className="h-96 overflow-y-auto space-y-4 mb-4 p-4 bg-gray-50 rounded-lg">
-            {currentConversation?.messages.map((message) => (
-              <div key={message.id} className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`flex gap-3 max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    message.role === 'user' 
-                      ? 'bg-gray-900' 
-                      : 'bg-gray-900'
-                  }`}>
-                    {message.role === 'user' ? (
-                      <User className="h-4 w-4 text-white" />
-                    ) : (
-                      <span className="text-white font-bold text-sm">M</span>
-                    )}
-                  </div>
-                  <div className={`p-3 rounded-lg ${
-                    message.role === 'user' 
-                      ? 'bg-gray-900 text-white' 
-                      : 'bg-gray-100 border border-gray-200'
-                  }`}>
-                    <div className="text-sm whitespace-pre-wrap">
-                      {formatMessage(message.content)}
+            {currentConversation?.messages.map((message, index) => {
+              const isLastMessage = index === currentConversation.messages.length - 1;
+              const isAiTyping = isStreaming && isLastMessage && message.role === 'assistant';
+
+              return (
+                <div key={message.id} className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`flex gap-3 max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      message.role === 'user' 
+                        ? 'bg-gray-900' 
+                        : 'bg-gray-900'
+                    }`}>
+                      {message.role === 'user' ? (
+                        <User className="h-4 w-4 text-white" />
+                      ) : (
+                        <span className="text-white font-bold text-sm">M</span>
+                      )}
+                    </div>
+                    <div className={`p-3 rounded-lg ${
+                      message.role === 'user' 
+                        ? 'bg-gray-900 text-white' 
+                        : 'bg-gray-100 border border-gray-200'
+                    }`}>
+                      {isAiTyping && message.content.length === 0 ? (
+                        <div className="flex gap-1 items-center h-5">
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        </div>
+                      ) : (
+                        <div className="text-sm whitespace-pre-wrap">
+                          {formatMessage(message.content)}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             
             {/* Streaming message */}
             {isStreaming && streamingMessage && (
@@ -207,22 +217,6 @@ const TaskBuilder = () => {
                 <div className="bg-gray-100 border border-gray-200 p-3 rounded-lg">
                   <div className="text-sm whitespace-pre-wrap">
                     {formatMessage(streamingMessage)}
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {/* AI Typing Indicator */}
-            {isAiTyping && (
-              <div className="flex gap-3 justify-start">
-                <div className="w-8 h-8 rounded-full bg-gray-900 flex items-center justify-center flex-shrink-0">
-                  <span className="text-white font-bold text-sm">M</span>
-                </div>
-                <div className="bg-gray-100 border border-gray-200 p-3 rounded-lg">
-                  <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                   </div>
                 </div>
               </div>
