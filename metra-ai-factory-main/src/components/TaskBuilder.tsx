@@ -254,20 +254,6 @@ const TaskBuilder = () => {
               );
             })}
             
-            {/* Streaming message */}
-            {isStreaming && streamingMessage && (
-              <div className="flex gap-3 justify-start">
-                <div className="w-8 h-8 rounded-full bg-gray-900 flex items-center justify-center flex-shrink-0">
-                  <span className="text-white font-bold text-sm">M</span>
-                </div>
-                <div className="bg-gray-100 border border-gray-200 p-3 rounded-lg">
-                  <div className="text-sm whitespace-pre-wrap">
-                    {formatMessage(streamingMessage)}
-                  </div>
-                </div>
-              </div>
-            )}
-            
             <div ref={messagesEndRef} />
           </div>
 
