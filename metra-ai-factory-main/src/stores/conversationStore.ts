@@ -161,20 +161,13 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       }
       
       // Create streaming response
-      const response = await fetch(`${api.defaults.baseURL}/conversations/${conversationId}/messages/stream`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ content, role: 'user' })
-      });
+      const responseBody = await api.post<ReadableStream>(
+        `/conversations/${conversationId}/messages/stream`,
+        { content, role: 'user' },
+        true
+      );
       
-      if (!response.ok) {
-        throw new Error('Failed to send message');
-      }
-      
-      const reader = response.body?.getReader();
+      const reader = responseBody?.getReader();
       const decoder = new TextDecoder();
       let assistantMessage = '';
       
