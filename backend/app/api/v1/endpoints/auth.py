@@ -109,4 +109,21 @@ def read_users_me(
     """
     Get current user.
     """
-    return current_user 
+    return current_user
+
+
+@router.get("/me/usage")
+def read_usage_stats(
+    current_user: User = Depends(deps.get_current_user),
+):
+    """
+    Get user's API usage stats.
+    """
+    # This is a mock response.
+    # In a real application, you would fetch this from your database or a billing service.
+    return {
+        "credits_used": 3,
+        "credits_remaining": 97,
+        "models_trained": 1,
+        "next_billing_date": "2025-07-29"
+    } 
