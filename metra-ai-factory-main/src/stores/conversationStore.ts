@@ -137,10 +137,10 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
 
   // Send message with streaming
   sendMessageStream: async (conversationId: string, content: string) => {
-    set({ isStreaming: true, error: null, streamingMessage: '' });
+    set({ isStreaming: true, error: null });
     
     try {
-      // First, add user message
+      // Add user message immediately
       const userMessage: Message = {
         id: Date.now().toString(),
         conversation_id: conversationId,
@@ -148,26 +148,16 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         content,
         created_at: new Date().toISOString()
       };
-      
-      const assistantPlaceholder: Message = {
-        id: 'streaming-assistant-message',
-        conversation_id: conversationId,
-        role: 'assistant',
-        content: '',
-        created_at: new Date().toISOString()
-      };
-
       const currentConv = get().currentConversation;
       if (currentConv) {
         set({
           currentConversation: {
             ...currentConv,
-            messages: [...currentConv.messages, userMessage, assistantPlaceholder]
+            messages: [...currentConv.messages, userMessage]
           }
         });
       }
       
-      // Create streaming response
       const responseBody = await api.post<ReadableStream>(
         `/conversations/${conversationId}/messages/stream`,
         { content, role: 'user' },
@@ -176,70 +166,66 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       
       const reader = responseBody?.getReader();
       const decoder = new TextDecoder();
-      let assistantMessage = '';
       
+      let assistantMessageContent = "";
+      const assistantMessageId = (Date.now() + 1).toString();
+      
+      // Add a placeholder for the assistant's message
+      set(state => ({
+        currentConversation: {
+          ...state.currentConversation!,
+          messages: [
+            ...state.currentConversation!.messages,
+            {
+              id: assistantMessageId,
+              role: 'assistant',
+              content: '',
+              conversation_id: conversationId,
+              created_at: new Date().toISOString()
+            }
+          ]
+        }
+      }));
+
       if (reader) {
         while (true) {
           const { done, value } = await reader.read();
-          if (done) break;
+          if (done) {
+            set({ isStreaming: false });
+            // Final check for completion status
+            const finalContent = get().currentConversation?.messages.find(m => m.id === assistantMessageId)?.content || "";
+            if (finalContent.includes("```json")) {
+              set(state => ({
+                currentConversation: { ...state.currentConversation!, is_completed: true }
+              }));
+            }
+            break;
+          }
           
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
-          
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const rawData = line.slice(6);
-              if (rawData === '[DONE]') {
-                // Streaming complete
-                set({ isStreaming: false });
-                
-                // Finalize the assistant message
-                const finalConv = get().currentConversation;
-                if (finalConv) {
-                    const finalAssistantMessage: Message = {
-                        ...finalConv.messages[finalConv.messages.length - 1], // Get the placeholder
-                        id: (Date.now() + 1).toString(), // Assign a new permanent ID
-                        content: assistantMessage,
-                    };
+          const rawData = decoder.decode(value);
+          const chunks = rawData.split('data: ').filter(Boolean);
 
-                    set({
-                        currentConversation: {
-                            ...finalConv,
-                            messages: [...finalConv.messages.slice(0, -1), finalAssistantMessage],
-                        }
-                    });
-                }
-              } else if (rawData.startsWith('ERROR: ')) {
-                throw new Error(rawData.slice(7));
-              } else {
-                try {
-                  const chunk = JSON.parse(rawData);
-                  assistantMessage += chunk;
-                  
-                  // Update streaming message in real-time
-                  const currentConv = get().currentConversation;
-                  if (currentConv) {
-                      set({
-                          currentConversation: {
-                              ...currentConv,
-                              messages: [
-                                  ...currentConv.messages.slice(0, -1),
-                                  {
-                                      id: 'streaming-assistant-message',
-                                      role: 'assistant',
-                                      content: assistantMessage,
-                                      conversation_id: conversationId,
-                                      created_at: new Date().toISOString()
-                                  }
-                              ]
-                          }
-                      });
-                  }
+          for (const chunk of chunks) {
+            if (chunk.trim() === '[DONE]') continue;
+            
+            try {
+              const parsedChunk = JSON.parse(chunk);
+              assistantMessageContent += parsedChunk;
 
-                } catch (e) {
-                  // Ignore parse errors, might be incomplete JSON
+              // Update the placeholder message with the new content
+              set(state => ({
+                currentConversation: {
+                  ...state.currentConversation!,
+                  messages: state.currentConversation!.messages.map(msg =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, content: assistantMessageContent }
+                      : msg
+                  )
                 }
-              }
+              }));
+
+            } catch (e) {
+              console.warn("Failed to parse stream chunk:", chunk);
             }
           }
         }

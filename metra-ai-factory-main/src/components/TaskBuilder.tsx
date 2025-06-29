@@ -124,6 +124,9 @@ const TaskBuilder = () => {
     ));
   };
 
+  const lastMessage = currentConversation?.messages[currentConversation.messages.length - 1];
+  const isAiTyping = isStreaming && lastMessage?.role === 'assistant';
+
   return (
     <div className="p-8 space-y-6 max-w-5xl mx-auto">
       {/* Error Alert */}
@@ -209,8 +212,8 @@ const TaskBuilder = () => {
               </div>
             )}
             
-            {/* Typing indicator */}
-            {isStreaming && !streamingMessage && (
+            {/* AI Typing Indicator */}
+            {isAiTyping && (
               <div className="flex gap-3 justify-start">
                 <div className="w-8 h-8 rounded-full bg-gray-900 flex items-center justify-center flex-shrink-0">
                   <span className="text-white font-bold text-sm">M</span>
