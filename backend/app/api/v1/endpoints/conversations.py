@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 import json
 import asyncio
-from openai import OpenAI
+import openai
 
 from app.api import deps
 from app.models.user import User
@@ -24,8 +24,8 @@ from app.core.config import settings
 
 router = APIRouter()
 
-# Initialize OpenAI client
-client = OpenAI(api_key=settings.OPENAI_API_KEY)
+# Set OpenAI API key
+openai.api_key = settings.OPENAI_API_KEY
 
 SYSTEM_PROMPT = """You are Metra AI, a friendly and expert AI assistant. 
 Your primary goal is to help non-technical users define a machine learning task through a natural, multi-turn conversation.
@@ -184,15 +184,15 @@ async def create_message_stream(
 
     async def generate():
         try:
-            stream = await client.chat.completions.create(
+            response = await openai.ChatCompletion.acreate(
                 model="gpt-4o-mini",
                 messages=messages_for_openai,
                 stream=True
             )
             
             assistant_response_content = ""
-            async for chunk in stream:
-                content = chunk.choices[0].delta.content or ""
+            async for chunk in response:
+                content = chunk['choices'][0]['delta'].get('content', '')
                 assistant_response_content += content
                 yield f"data: {json.dumps(content)}\n\n"
             
