@@ -4,9 +4,47 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { MessageCircle, Send, User, Bot, ArrowRight, Sparkles, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { MessageCircle, Send, User, Bot, ArrowRight, Sparkles, CheckCircle, AlertCircle, Loader2, ThumbsUp } from 'lucide-react';
 import { useConversationStore } from '@/stores/conversationStore';
 import { useNavigate } from 'react-router-dom';
+
+const SchemaDisplay = ({ schema }: { schema: any }) => {
+  if (!schema || typeof schema !== 'object') {
+    return <pre className="text-xs">{JSON.stringify(schema, null, 2)}</pre>;
+  }
+
+  const renderValue = (value: any) => {
+    if (typeof value === 'boolean') {
+      return value ? 'Yes' : 'No';
+    }
+    if (Array.isArray(value)) {
+      return value.join(', ');
+    }
+    if (typeof value === 'object' && value !== null) {
+      return (
+        <ul className="list-disc list-inside pl-4">
+          {Object.entries(value).map(([key, val]) => (
+            <li key={key}>
+              <span className="font-semibold capitalize">{key.replace(/_/g, ' ')}:</span> {renderValue(val)}
+            </li>
+          ))}
+        </ul>
+      );
+    }
+    return value;
+  };
+
+  return (
+    <div className="space-y-2 text-sm">
+      {Object.entries(schema).map(([key, value]) => (
+        <div key={key}>
+          <p className="font-semibold capitalize">{key.replace(/_/g, ' ')}:</p>
+          <div className="pl-4 text-gray-700">{renderValue(value)}</div>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const TaskBuilder = () => {
   const navigate = useNavigate();
@@ -14,22 +52,24 @@ const TaskBuilder = () => {
   const [taskName, setTaskName] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
   const [showTaskForm, setShowTaskForm] = useState(false);
-  const [extractedSchema, setExtractedSchema] = useState<any>(null);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const {
     currentConversation,
     isLoading,
     isStreaming,
-    streamingMessage,
     error,
     createConversation,
     sendMessageStream,
     createTaskDefinition,
+    setConversationCompleted,
     clearError
   } = useConversationStore();
 
-  // Create conversation on mount
+  const [hasSchema, setHasSchema] = useState(false);
+  const [schema, setSchema] = useState<any>(null);
+  
   useEffect(() => {
     const initConversation = async () => {
       if (!currentConversation) {
@@ -37,40 +77,46 @@ const TaskBuilder = () => {
           await createConversation();
         } catch (error) {
           console.error("Failed to initialize conversation:", error);
-          // The error will be set in the store, and the UI will display it.
         }
       }
     };
     initConversation();
   }, [createConversation, currentConversation]);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [currentConversation?.messages, streamingMessage]);
+  }, [currentConversation?.messages]);
 
-  // Extract JSON schema from AI message
   useEffect(() => {
-    if (currentConversation?.is_completed) {
-      const lastAiMessage = [...(currentConversation.messages || [])]
-        .reverse()
-        .find(m => m.role === 'assistant');
-      
-      if (lastAiMessage) {
-        const jsonMatch = lastAiMessage.content.match(/```json\s*([\s\S]*?)\s*```/);
-        if (jsonMatch) {
-          try {
-            const schema = JSON.parse(jsonMatch[1]);
-            setExtractedSchema(schema);
-            setShowTaskForm(true);
-          } catch (e) {
-            console.error('Failed to parse JSON schema:', e);
-          }
+    const lastMessage = currentConversation?.messages?.[currentConversation.messages.length - 1];
+    if (lastMessage?.role === 'assistant' && lastMessage.content.includes("```json")) {
+      const jsonMatch = lastMessage.content.match(/```json\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        try {
+          const parsedSchema = JSON.parse(jsonMatch[1]);
+          setSchema(parsedSchema);
+          setHasSchema(true);
+        } catch (e) {
+          console.error('Failed to parse JSON schema:', e);
+          setHasSchema(false);
         }
       }
+    } else {
+      setHasSchema(false);
     }
+
+    if (currentConversation?.is_completed) {
+      setShowTaskForm(true);
+    }
+
   }, [currentConversation]);
 
+  const handleConfirmSchema = () => {
+    if (currentConversation) {
+      setConversationCompleted(currentConversation.id);
+    }
+  };
+  
   const handleSendMessage = async () => {
     if (!currentInput.trim() || !currentConversation || isStreaming) {
       console.warn("SendMessage cancelled: ", {
@@ -160,7 +206,7 @@ const TaskBuilder = () => {
             {currentConversation?.is_completed && (
               <Badge className="bg-green-100 text-green-700 border-green-200">
                 <CheckCircle className="h-3 w-3 mr-1" />
-                Schema Generated
+                Schema Confirmed
               </Badge>
             )}
           </div>
@@ -225,8 +271,18 @@ const TaskBuilder = () => {
             <div ref={messagesEndRef} />
           </div>
 
+          {/* Action buttons area */}
+          {!currentConversation?.is_completed && hasSchema && (
+            <div className="flex justify-center p-4 border-t">
+              <Button onClick={handleConfirmSchema}>
+                <ThumbsUp className="mr-2 h-4 w-4" />
+                Confirm & Continue
+              </Button>
+            </div>
+          )}
+
           {/* Input area */}
-          {!currentConversation?.is_completed && (
+          {!currentConversation?.is_completed && !hasSchema && (
             <div className="flex gap-3">
               <Input
                 placeholder="Type your message..."
@@ -253,13 +309,10 @@ const TaskBuilder = () => {
       </Card>
 
       {/* Task definition form */}
-      {showTaskForm && extractedSchema && (
+      {showTaskForm && (
         <Card className="border-0 shadow-sm bg-green-50/30">
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-green-600" />
-              <CardTitle className="text-lg text-gray-900">Save Task Definition</CardTitle>
-            </div>
+            <CardTitle className="text-lg text-gray-900">Save Task Definition</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -270,7 +323,6 @@ const TaskBuilder = () => {
                 onChange={(e) => setTaskName(e.target.value)}
               />
             </div>
-            
             <div className="space-y-2">
               <label className="text-sm font-medium">Description (Optional)</label>
               <Input
@@ -279,14 +331,12 @@ const TaskBuilder = () => {
                 onChange={(e) => setTaskDescription(e.target.value)}
               />
             </div>
-            
             <div className="space-y-2">
-              <label className="text-sm font-medium">Generated Schema</label>
+              <label className="text-sm font-medium">Generated Schema Summary</label>
               <div className="bg-gray-100 p-3 rounded-lg overflow-auto max-h-48">
-                <pre className="text-xs">{JSON.stringify(extractedSchema, null, 2)}</pre>
+                <SchemaDisplay schema={schema} />
               </div>
             </div>
-            
             <div className="pt-4 flex justify-end gap-3">
               <Button
                 variant="outline"

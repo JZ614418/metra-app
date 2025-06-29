@@ -57,7 +57,16 @@ interface ConversationStore {
   createTaskDefinition: (conversationId: string, name: string, description?: string) => Promise<TaskDefinition>;
   clearError: () => void;
   reset: () => void;
+  setConversationCompleted: (conversationId: string) => void;
 }
+
+const INTRO_MESSAGE: Message = {
+  id: 'intro-message',
+  conversation_id: 'intro',
+  role: 'assistant',
+  content: "Hello! I'm Metra AI, your assistant for building custom AI models. You don't need any programming knowledge—just tell me what you're trying to achieve, and I'll guide you through the process of defining your task. So, what problem are you looking to solve?",
+  created_at: new Date().toISOString()
+};
 
 export const useConversationStore = create<ConversationStore>((set, get) => ({
   // Initial state
@@ -75,7 +84,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       const conversation = await api.post<Conversation>('/conversations', { title });
       set(state => ({
         conversations: [conversation, ...state.conversations],
-        currentConversation: conversation,
+        currentConversation: { ...conversation, messages: [INTRO_MESSAGE] },
         isLoading: false
       }));
       return conversation;
@@ -281,5 +290,14 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     error: null,
     isStreaming: false,
     streamingMessage: ''
-  })
+  }),
+
+  setConversationCompleted: (conversationId: string) => {
+    set(state => {
+      if (state.currentConversation?.id === conversationId) {
+        return { currentConversation: { ...state.currentConversation, is_completed: true } };
+      }
+      return {};
+    });
+  }
 })); 
