@@ -149,12 +149,20 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         created_at: new Date().toISOString()
       };
       
+      const assistantPlaceholder: Message = {
+        id: 'streaming-assistant-message',
+        conversation_id: conversationId,
+        role: 'assistant',
+        content: '',
+        created_at: new Date().toISOString()
+      };
+
       const currentConv = get().currentConversation;
       if (currentConv) {
         set({
           currentConversation: {
             ...currentConv,
-            messages: [...currentConv.messages, userMessage]
+            messages: [...currentConv.messages, userMessage, assistantPlaceholder]
           }
         });
       }
@@ -180,36 +188,59 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
           
           for (const line of lines) {
             if (line.startsWith('data: ')) {
-              const data = line.slice(6);
-              if (data === '[DONE]') {
+              const rawData = line.slice(6);
+              if (rawData === '[DONE]') {
                 // Streaming complete
                 set({ isStreaming: false });
                 
-                // Add complete assistant message
-                const aiMessage: Message = {
-                  id: (Date.now() + 1).toString(),
-                  conversation_id: conversationId,
-                  role: 'assistant',
-                  content: assistantMessage,
-                  created_at: new Date().toISOString()
-                };
-                
-                const conv = get().currentConversation;
-                if (conv) {
-                  set({
-                    currentConversation: {
-                      ...conv,
-                      messages: [...conv.messages.slice(0, -1), userMessage, aiMessage],
-                      is_completed: assistantMessage.includes('I now have enough information')
-                    }
-                  });
+                // Add complete assistant message to state
+                const finalConv = get().currentConversation;
+                if (finalConv) {
+                    const finalAssistantMessage: Message = {
+                        id: (Date.now() + 1).toString(),
+                        conversation_id: conversationId,
+                        role: 'assistant',
+                        content: assistantMessage,
+                        created_at: new Date().toISOString()
+                    };
+
+                    set({
+                        currentConversation: {
+                            ...finalConv,
+                            messages: [...finalConv.messages, finalAssistantMessage],
+                        }
+                    });
                 }
-              } else if (data.startsWith('ERROR: ')) {
-                throw new Error(data.slice(7));
+              } else if (rawData.startsWith('ERROR: ')) {
+                throw new Error(rawData.slice(7));
               } else {
-                // Append to streaming message
-                assistantMessage += data;
-                set({ streamingMessage: assistantMessage });
+                try {
+                  const chunk = JSON.parse(rawData);
+                  assistantMessage += chunk;
+                  
+                  // Update streaming message in real-time
+                  const currentConv = get().currentConversation;
+                  if (currentConv) {
+                      set({
+                          currentConversation: {
+                              ...currentConv,
+                              messages: [
+                                  ...currentConv.messages.slice(0, -1),
+                                  {
+                                      id: 'streaming-assistant-message',
+                                      role: 'assistant',
+                                      content: assistantMessage,
+                                      conversation_id: conversationId,
+                                      created_at: new Date().toISOString()
+                                  }
+                              ]
+                          }
+                      });
+                  }
+
+                } catch (e) {
+                  // Ignore parse errors, might be incomplete JSON
+                }
               }
             }
           }
