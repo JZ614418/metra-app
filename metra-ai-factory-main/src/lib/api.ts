@@ -55,7 +55,7 @@ class ApiClient {
     return response.json()
   }
 
-  async post<T>(endpoint: string, data: any, isStream: boolean = false) {
+  async post<T>(endpoint: string, data: any, isStream = false) {
     return this.request<T>(endpoint, {
       method: 'POST',
       body: JSON.stringify(data),
