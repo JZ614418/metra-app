@@ -202,13 +202,6 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
             const { done, value } = await reader.read();
             if (done) {
               set({ isStreaming: false });
-              // Final check for completion status
-              const finalContent = get().currentConversation?.messages.find(m => m.id === assistantMessageId)?.content || "";
-              if (finalContent.includes("```json")) {
-                set(state => ({
-                  currentConversation: { ...state.currentConversation!, is_completed: true }
-                }));
-              }
               break;
             }
             

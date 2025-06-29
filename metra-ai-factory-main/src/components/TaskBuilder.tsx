@@ -46,6 +46,27 @@ const SchemaDisplay = ({ schema }: { schema: any }) => {
   );
 };
 
+const MessageContent = ({ content }: { content: string }) => {
+  const parts = content.split(/```json\s*([\s\S]*?)\s*```/);
+  
+  return (
+    <div>
+      {parts.map((part, index) => {
+        if (index % 2 === 1) { // This is the JSON part
+          try {
+            const schema = JSON.parse(part);
+            return <SchemaDisplay key={index} schema={schema} />;
+          } catch (e) {
+            return <pre key={index} className="text-xs bg-gray-200 p-2 rounded">{`\`\`\`json\n${part}\n\`\`\``}</pre>;
+          }
+        } else { // This is the text part
+          return <span key={index}>{part}</span>;
+        }
+      })}
+    </div>
+  );
+};
+
 const TaskBuilder = () => {
   const navigate = useNavigate();
   const [currentInput, setCurrentInput] = useState('');
@@ -245,7 +266,7 @@ const TaskBuilder = () => {
                         </div>
                       ) : (
                         <div className="text-sm whitespace-pre-wrap">
-                          {formatMessage(message.content)}
+                          <MessageContent content={message.content} />
                         </div>
                       )}
                     </div>
