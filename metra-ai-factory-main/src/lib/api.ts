@@ -1,6 +1,6 @@
 import { useAuthStore } from '@/stores/authStore'
 
-const API_URL = import.meta.env.VITE_API_URL
+const API_URL = '/api' // All requests will now go to /api, which will be proxied by Vercel
 
 interface User {
   id: string
