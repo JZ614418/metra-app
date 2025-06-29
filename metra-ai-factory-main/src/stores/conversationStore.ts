@@ -72,8 +72,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   createConversation: async (title?: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.post('/conversations', { title });
-      const conversation = response.data;
+      const conversation = await api.post<Conversation>('/conversations', { title });
       set(state => ({
         conversations: [conversation, ...state.conversations],
         currentConversation: conversation,
@@ -81,7 +80,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       }));
       return conversation;
     } catch (error: any) {
-      set({ error: error.response?.data?.detail || 'Failed to create conversation', isLoading: false });
+      set({ error: error.message || 'Failed to create conversation', isLoading: false });
       throw error;
     }
   },
@@ -90,10 +89,10 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   loadConversations: async () => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.get('/conversations');
-      set({ conversations: response.data, isLoading: false });
+      const conversations = await api.request<ConversationList[]>('/conversations');
+      set({ conversations, isLoading: false });
     } catch (error: any) {
-      set({ error: error.response?.data?.detail || 'Failed to load conversations', isLoading: false });
+      set({ error: error.message || 'Failed to load conversations', isLoading: false });
     }
   },
 
@@ -101,10 +100,10 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   loadConversation: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.get(`/conversations/${id}`);
-      set({ currentConversation: response.data, isLoading: false });
+      const conversation = await api.request<Conversation>(`/conversations/${id}`);
+      set({ currentConversation: conversation, isLoading: false });
     } catch (error: any) {
-      set({ error: error.response?.data?.detail || 'Failed to load conversation', isLoading: false });
+      set({ error: error.message || 'Failed to load conversation', isLoading: false });
     }
   },
 
@@ -112,7 +111,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   sendMessage: async (conversationId: string, content: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.post(`/conversations/${conversationId}/messages`, {
+      const message = await api.post<Message>(`/conversations/${conversationId}/messages`, {
         content,
         role: 'user'
       });
@@ -123,15 +122,15 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         set({
           currentConversation: {
             ...currentConv,
-            messages: [...currentConv.messages, response.data]
+            messages: [...currentConv.messages, message]
           },
           isLoading: false
         });
       }
       
-      return response.data;
+      return message;
     } catch (error: any) {
-      set({ error: error.response?.data?.detail || 'Failed to send message', isLoading: false });
+      set({ error: error.message || 'Failed to send message', isLoading: false });
       throw error;
     }
   },
@@ -226,7 +225,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   createTaskDefinition: async (conversationId: string, name: string, description?: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.post('/task-definitions', {
+      const taskDefinition = await api.post<TaskDefinition>('/task-definitions', {
         conversation_id: conversationId,
         name,
         description
@@ -243,9 +242,9 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         });
       }
       
-      return response.data;
+      return taskDefinition;
     } catch (error: any) {
-      set({ error: error.response?.data?.detail || 'Failed to create task definition', isLoading: false });
+      set({ error: error.message || 'Failed to create task definition', isLoading: false });
       throw error;
     }
   },
