@@ -1,6 +1,6 @@
 import { useAuthStore } from '@/stores/authStore'
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://backend-api-production-e944.up.railway.app/api/v1'
+const API_URL = import.meta.env.VITE_API_URL
 
 interface User {
   id: string
