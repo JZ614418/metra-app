@@ -193,21 +193,19 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                 // Streaming complete
                 set({ isStreaming: false });
                 
-                // Add complete assistant message to state
+                // Finalize the assistant message
                 const finalConv = get().currentConversation;
                 if (finalConv) {
                     const finalAssistantMessage: Message = {
-                        id: (Date.now() + 1).toString(),
-                        conversation_id: conversationId,
-                        role: 'assistant',
+                        ...finalConv.messages[finalConv.messages.length - 1], // Get the placeholder
+                        id: (Date.now() + 1).toString(), // Assign a new permanent ID
                         content: assistantMessage,
-                        created_at: new Date().toISOString()
                     };
 
                     set({
                         currentConversation: {
                             ...finalConv,
-                            messages: [...finalConv.messages, finalAssistantMessage],
+                            messages: [...finalConv.messages.slice(0, -1), finalAssistantMessage],
                         }
                     });
                 }
