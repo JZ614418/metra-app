@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 import json
 import asyncio
+from openai import OpenAI
 
 from app.api import deps
 from app.models.user import User
@@ -19,8 +20,22 @@ from app.schemas.conversation import (
     TaskDefinition as TaskDefinitionSchema
 )
 from app.db.session import get_db
+from app.core.config import settings
 
 router = APIRouter()
+
+# Initialize OpenAI client
+client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+SYSTEM_PROMPT = """You are Metra AI, a friendly and expert AI assistant. 
+Your primary goal is to help non-technical users define a machine learning task through a natural, multi-turn conversation.
+- Start by introducing yourself and asking the user what problem they're trying to solve.
+- Ask clarifying questions to understand their data, what they want to achieve, and any specific requirements.
+- Guide the user. If they are unsure, provide examples or suggest common use cases.
+- When you have enough information, summarize the task and generate a JSON schema representing the task definition for the user's confirmation. 
+- The JSON schema should be enclosed in a ```json code block.
+- Your final message after generating the JSON should be a request for confirmation, like "Does this look correct to you?". Do not add any other text after the JSON block in that message.
+"""
 
 
 @router.post("/conversations", response_model=ConversationSchema)
@@ -143,8 +158,7 @@ async def create_message_stream(
     message_in: MessageCreate,
     current_user: User = Depends(deps.get_current_user)
 ):
-    """Stream a message response."""
-    # Verify conversation exists and belongs to user
+    """Stream a message response from OpenAI."""
     conversation = db.query(Conversation).filter(
         Conversation.id == conversation_id,
         Conversation.user_id == current_user.id
@@ -153,65 +167,49 @@ async def create_message_stream(
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
     
-    # Create user message
+    # Save the user's message to the database
     user_message = Message(
         conversation_id=conversation_id,
-        role=message_in.role,
+        role="user",
         content=message_in.content
     )
     db.add(user_message)
     db.commit()
-    
-    # Simulate streaming response
+    db.refresh(user_message)
+
+    # Prepare message history for OpenAI
+    history = db.query(Message).filter(Message.conversation_id == conversation_id).order_by(Message.created_at).all()
+    messages_for_openai = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages_for_openai.extend([{"role": m.role, "content": m.content} for m in history])
+
     async def generate():
-        # Simulated AI response
-        response_text = """I understand you want to create an AI model. Let me help you define your requirements.
+        try:
+            stream = await client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=messages_for_openai,
+                stream=True
+            )
+            
+            assistant_response_content = ""
+            async for chunk in stream:
+                content = chunk.choices[0].delta.content or ""
+                assistant_response_content += content
+                yield f"data: {json.dumps(content)}\n\n"
+            
+            # Save the full response from the assistant
+            assistant_message = Message(
+                conversation_id=conversation_id,
+                role="assistant",
+                content=assistant_response_content
+            )
+            db.add(assistant_message)
+            db.commit()
 
-Based on what you've told me, I'll need to understand:
-1. What type of data you'll be working with
-2. What you want the model to predict or generate
-3. Any specific requirements or constraints
-
-Could you provide more details about your use case?
-
-Here's a sample JSON schema for your task:
-
-```json
-{
-  "task_type": "classification",
-  "input_type": "text",
-  "output_type": "category",
-  "categories": ["positive", "negative", "neutral"],
-  "requirements": {
-    "accuracy": "high",
-    "latency": "low",
-    "interpretability": "medium"
-  }
-}
-```
-
-I now have enough information to proceed with model recommendations."""
-        
-        # Stream the response character by character
-        for char in response_text:
-            yield f"data: {char}\n\n"
-            await asyncio.sleep(0.01)  # Simulate typing delay
-        
-        # Save the complete AI response
-        ai_message = Message(
-            conversation_id=conversation_id,
-            role="assistant",
-            content=response_text
-        )
-        db.add(ai_message)
-        
-        # Mark conversation as completed if the response indicates so
-        if "I now have enough information" in response_text:
-            conversation.is_completed = True
-        
-        db.commit()
-        
-        yield "data: [DONE]\n\n"
+        except Exception as e:
+            error_message = f"ERROR: {str(e)}"
+            yield f"data: {json.dumps(error_message)}\n\n"
+        finally:
+            yield "data: [DONE]\n\n"
     
     return StreamingResponse(generate(), media_type="text/event-stream")
 
