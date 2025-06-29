@@ -188,47 +188,55 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       }));
 
       if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            set({ isStreaming: false });
-            // Final check for completion status
-            const finalContent = get().currentConversation?.messages.find(m => m.id === assistantMessageId)?.content || "";
-            if (finalContent.includes("```json")) {
-              set(state => ({
-                currentConversation: { ...state.currentConversation!, is_completed: true }
-              }));
+        const processStream = async () => {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              set({ isStreaming: false });
+              // Final check for completion status
+              const finalContent = get().currentConversation?.messages.find(m => m.id === assistantMessageId)?.content || "";
+              if (finalContent.includes("```json")) {
+                set(state => ({
+                  currentConversation: { ...state.currentConversation!, is_completed: true }
+                }));
+              }
+              break;
             }
-            break;
-          }
-          
-          const rawData = decoder.decode(value);
-          const chunks = rawData.split('data: ').filter(Boolean);
-
-          for (const chunk of chunks) {
-            if (chunk.trim() === '[DONE]') continue;
             
-            try {
-              const parsedChunk = JSON.parse(chunk);
-              assistantMessageContent += parsedChunk;
+            const rawData = decoder.decode(value, { stream: true });
+            const chunks = rawData.split('data: ').filter(Boolean);
 
-              // Update the placeholder message with the new content
-              set(state => ({
-                currentConversation: {
-                  ...state.currentConversation!,
-                  messages: state.currentConversation!.messages.map(msg =>
-                    msg.id === assistantMessageId
-                      ? { ...msg, content: assistantMessageContent }
-                      : msg
-                  )
+            for (const chunk of chunks) {
+              if (chunk.trim() === '[DONE]') continue;
+              
+              try {
+                const parsedChunk = JSON.parse(chunk);
+                
+                // Simulate typing effect by adding characters one by one with a small delay
+                for (const char of parsedChunk) {
+                  assistantMessageContent += char;
+
+                  set(state => ({
+                    currentConversation: {
+                      ...state.currentConversation!,
+                      messages: state.currentConversation!.messages.map(msg =>
+                        msg.id === assistantMessageId
+                          ? { ...msg, content: assistantMessageContent }
+                          : msg
+                      )
+                    }
+                  }));
+                  
+                  await new Promise(resolve => setTimeout(resolve, 5)); // 5ms delay between characters
                 }
-              }));
 
-            } catch (e) {
-              console.warn("Failed to parse stream chunk:", chunk);
+              } catch (e) {
+                console.warn("Failed to parse stream chunk:", chunk);
+              }
             }
           }
-        }
+        };
+        await processStream();
       }
     } catch (error: any) {
       set({ error: error.message || 'Failed to send message', isStreaming: false });
