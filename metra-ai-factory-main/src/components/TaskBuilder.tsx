@@ -74,6 +74,7 @@ const TaskBuilder = () => {
   const [taskDescription, setTaskDescription] = useState('');
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [showConfirmButton, setShowConfirmButton] = useState(false);
+  const [confirmationOffered, setConfirmationOffered] = useState(false);
   const [schema, setSchema] = useState<any>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -126,30 +127,27 @@ const TaskBuilder = () => {
       }
     }
     
-    // Check if it's time to show the confirmation button
-    const aiMessages = messages.filter(m => m.role === 'assistant');
-    const lastAiMessage = aiMessages[aiMessages.length - 1];
-    const aiConfirmationRequest = lastAiMessage?.content.includes("```json") && lastAiMessage?.content.toLowerCase().includes("ok");
-
-    const userMessages = messages.filter(m => m.role === 'user');
-    const lastUserMessage = userMessages[userMessages.length - 1];
-
-    if (aiConfirmationRequest && lastUserMessage && new Date(lastUserMessage.created_at) > new Date(lastAiMessage.created_at)) {
-      const confirmationText = lastUserMessage.content.toLowerCase();
-      if (confirmationText.includes('ok') || confirmationText.includes('yes')) {
-        setShowConfirmButton(true);
-      } else {
-        setShowConfirmButton(false);
+    // Check if the AI has offered the schema for confirmation
+    if (lastMessage?.role === 'assistant' && lastMessage.content.includes("```json") && lastMessage.content.toLowerCase().includes("ok")) {
+      setConfirmationOffered(true);
+    }
+    
+    // Once confirmation is offered, we only check the user's response
+    if (confirmationOffered) {
+      const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+      if (lastUserMessage) {
+        const confirmationText = lastUserMessage.content.toLowerCase();
+        if (confirmationText.includes('ok') || confirmationText.includes('yes')) {
+          setShowConfirmButton(true);
+        }
       }
-    } else {
-      setShowConfirmButton(false);
     }
 
     if (currentConversation.is_completed) {
       setShowTaskForm(true);
     }
 
-  }, [currentConversation, currentConversation?.messages]);
+  }, [currentConversation, currentConversation?.messages, confirmationOffered]);
 
   const handleConfirmSchema = () => {
     if (currentConversation) {
