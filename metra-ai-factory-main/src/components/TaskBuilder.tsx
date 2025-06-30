@@ -73,6 +73,7 @@ const TaskBuilder = () => {
   const [taskName, setTaskName] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
   const [showTaskForm, setShowTaskForm] = useState(false);
+  const [showConfirmButton, setShowConfirmButton] = useState(false);
   const [schema, setSchema] = useState<any>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -106,10 +107,53 @@ const TaskBuilder = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentConversation?.messages]);
 
+  useEffect(() => {
+    if (!currentConversation) return;
+
+    const messages = currentConversation.messages;
+    const lastMessage = messages?.[messages.length - 1];
+
+    // Extract schema if present in the last message
+    if (lastMessage?.role === 'assistant' && lastMessage.content.includes("```json")) {
+      const jsonMatch = lastMessage.content.match(/```json\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        try {
+          const parsedSchema = JSON.parse(jsonMatch[1]);
+          setSchema(parsedSchema);
+        } catch (e) {
+          console.error('Failed to parse JSON schema:', e);
+        }
+      }
+    }
+    
+    // Check if it's time to show the confirmation button
+    const aiMessages = messages.filter(m => m.role === 'assistant');
+    const lastAiMessage = aiMessages[aiMessages.length - 1];
+    const aiConfirmationRequest = lastAiMessage?.content.includes("```json") && lastAiMessage?.content.toLowerCase().includes("ok");
+
+    const userMessages = messages.filter(m => m.role === 'user');
+    const lastUserMessage = userMessages[userMessages.length - 1];
+
+    if (aiConfirmationRequest && lastUserMessage && new Date(lastUserMessage.created_at) > new Date(lastAiMessage.created_at)) {
+      const confirmationText = lastUserMessage.content.toLowerCase();
+      if (confirmationText.includes('ok') || confirmationText.includes('yes')) {
+        setShowConfirmButton(true);
+      } else {
+        setShowConfirmButton(false);
+      }
+    } else {
+      setShowConfirmButton(false);
+    }
+
+    if (currentConversation.is_completed) {
+      setShowTaskForm(true);
+    }
+
+  }, [currentConversation, currentConversation?.messages]);
+
   const handleConfirmSchema = () => {
     if (currentConversation) {
       setConversationCompleted(currentConversation.id);
-      setShowTaskForm(true);
     }
   };
   
@@ -166,9 +210,6 @@ const TaskBuilder = () => {
     ));
   };
 
-  const lastMessage = currentConversation?.messages[currentConversation?.messages.length - 1];
-  const hasSchemaInLastMessage = lastMessage?.role === 'assistant' && lastMessage.content.includes("```json");
-
   return (
     <div className="p-8 space-y-6 max-w-5xl mx-auto">
       {/* Error Alert */}
@@ -214,18 +255,41 @@ const TaskBuilder = () => {
           {/* Chat messages */}
           <div className="h-96 overflow-y-auto space-y-4 mb-4 p-4 bg-gray-50 rounded-lg">
             {currentConversation?.messages.map((message, index) => {
-              const isLast = index === currentConversation.messages.length - 1;
+              const isLastMessage = index === currentConversation.messages.length - 1;
+              const isAiTyping = isStreaming && isLastMessage && message.role === 'assistant';
+
               return (
-                <div key={message.id}>
-                  <MessageContent content={message.content} />
-                  {isLast && hasSchemaInLastMessage && !currentConversation.is_completed && (
-                    <div className="flex justify-center p-4">
-                      <Button onClick={handleConfirmSchema}>
-                        <ThumbsUp className="mr-2 h-4 w-4" />
-                        Confirm & Continue
-                      </Button>
+                <div key={message.id} className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`flex gap-3 max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      message.role === 'user' 
+                        ? 'bg-gray-900' 
+                        : 'bg-gray-900'
+                    }`}>
+                      {message.role === 'user' ? (
+                        <User className="h-4 w-4 text-white" />
+                      ) : (
+                        <span className="text-white font-bold text-sm">M</span>
+                      )}
                     </div>
-                  )}
+                    <div className={`p-3 rounded-lg ${
+                      message.role === 'user' 
+                        ? 'bg-gray-900 text-white' 
+                        : 'bg-gray-100 border border-gray-200'
+                    }`}>
+                      {isAiTyping && message.content.length === 0 ? (
+                        <div className="flex gap-1 items-center h-5">
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        </div>
+                      ) : (
+                        <div className="text-sm whitespace-pre-wrap">
+                          <MessageContent content={message.content} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               );
             })}
@@ -233,8 +297,18 @@ const TaskBuilder = () => {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input area is always visible until conversation is completed */}
-          {!currentConversation?.is_completed && (
+          {/* Action buttons area */}
+          {showConfirmButton && !currentConversation?.is_completed && (
+            <div className="flex justify-center p-4 border-t">
+              <Button onClick={handleConfirmSchema}>
+                <ThumbsUp className="mr-2 h-4 w-4" />
+                Finalize & Continue to Next Step
+              </Button>
+            </div>
+          )}
+
+          {/* Input area - always visible until task is confirmed */}
+          {!currentConversation?.is_completed && !showConfirmButton && (
             <div className="flex gap-3 mt-4">
               <Input
                 placeholder="Type your response..."
