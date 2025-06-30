@@ -108,7 +108,12 @@ const TaskBuilder = () => {
   }, [currentConversation?.messages]);
 
   useEffect(() => {
-    const lastMessage = currentConversation?.messages?.[currentConversation.messages.length - 1];
+    if (!currentConversation) return;
+
+    const messages = currentConversation.messages;
+    const lastMessage = messages?.[messages.length - 1];
+
+    // Extract schema if present in the last message
     if (lastMessage?.role === 'assistant' && lastMessage.content.includes("```json")) {
       const jsonMatch = lastMessage.content.match(/```json\s*([\s\S]*?)\s*```/);
       if (jsonMatch) {
@@ -121,18 +126,25 @@ const TaskBuilder = () => {
       }
     }
     
-    // Logic to show the confirm button
-    const userMessages = currentConversation?.messages.filter(m => m.role === 'user') || [];
-    const lastUserMessage = userMessages[userMessages.length - 1]?.content.toLowerCase();
-    
-    if (lastMessage?.role === 'assistant' && lastMessage.content.includes("type 'OK' to finalize") && 
-        (lastUserMessage === 'ok' || lastUserMessage === 'yes')) {
-      setShowConfirmButton(true);
+    // Check if it's time to show the confirmation button
+    const aiConfirmationRequest = messages.find(m => 
+      m.role === 'assistant' && m.content.includes("type 'OK' to finalize")
+    );
+    const userMessages = messages.filter(m => m.role === 'user');
+    const lastUserMessage = userMessages[userMessages.length - 1];
+
+    if (aiConfirmationRequest && lastUserMessage && new Date(lastUserMessage.created_at) > new Date(aiConfirmationRequest.created_at)) {
+      const confirmationText = lastUserMessage.content.toLowerCase();
+      if (confirmationText.includes('ok') || confirmationText.includes('yes')) {
+        setShowConfirmButton(true);
+      } else {
+        setShowConfirmButton(false);
+      }
     } else {
       setShowConfirmButton(false);
     }
 
-    if (currentConversation?.is_completed) {
+    if (currentConversation.is_completed) {
       setShowTaskForm(true);
     }
 
