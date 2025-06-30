@@ -73,6 +73,8 @@ const TaskBuilder = () => {
   const [taskName, setTaskName] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
   const [showTaskForm, setShowTaskForm] = useState(false);
+  const [showConfirmButton, setShowConfirmButton] = useState(false);
+  const [schema, setSchema] = useState<any>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -88,9 +90,6 @@ const TaskBuilder = () => {
     clearError
   } = useConversationStore();
 
-  const [hasSchema, setHasSchema] = useState(false);
-  const [schema, setSchema] = useState<any>(null);
-  
   useEffect(() => {
     const initConversation = async () => {
       if (!currentConversation) {
@@ -116,14 +115,21 @@ const TaskBuilder = () => {
         try {
           const parsedSchema = JSON.parse(jsonMatch[1]);
           setSchema(parsedSchema);
-          setHasSchema(true);
         } catch (e) {
           console.error('Failed to parse JSON schema:', e);
-          setHasSchema(false);
         }
       }
+    }
+    
+    // Logic to show the confirm button
+    const userMessages = currentConversation?.messages.filter(m => m.role === 'user') || [];
+    const lastUserMessage = userMessages[userMessages.length - 1]?.content.toLowerCase();
+    
+    if (lastMessage?.role === 'assistant' && lastMessage.content.includes("type 'OK' to finalize") && 
+        (lastUserMessage === 'ok' || lastUserMessage === 'yes')) {
+      setShowConfirmButton(true);
     } else {
-      setHasSchema(false);
+      setShowConfirmButton(false);
     }
 
     if (currentConversation?.is_completed) {
@@ -279,36 +285,27 @@ const TaskBuilder = () => {
           </div>
 
           {/* Action buttons area */}
-          {!currentConversation?.is_completed && hasSchema && (
+          {showConfirmButton && !currentConversation?.is_completed && (
             <div className="flex justify-center p-4 border-t">
               <Button onClick={handleConfirmSchema}>
                 <ThumbsUp className="mr-2 h-4 w-4" />
-                Confirm & Continue
+                Finalize & Continue to Next Step
               </Button>
             </div>
           )}
 
-          {/* Input area */}
-          {!currentConversation?.is_completed && !hasSchema && (
-            <div className="flex gap-3">
+          {/* Input area - always visible until task is confirmed */}
+          {!currentConversation?.is_completed && !showConfirmButton && (
+            <div className="flex gap-3 mt-4">
               <Input
-                placeholder="Type your message..."
+                placeholder="Type your response..."
                 value={currentInput}
                 onChange={(e) => setCurrentInput(e.target.value)}
                 onKeyPress={handleKeyPress}
-                className="flex-1"
-                disabled={isStreaming || isLoading}
+                disabled={isStreaming}
               />
-              <Button 
-                onClick={handleSendMessage}
-                disabled={!currentInput.trim() || isStreaming || isLoading}
-                className="bg-gray-900 hover:bg-gray-800"
-              >
-                {isStreaming ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
+              <Button onClick={handleSendMessage} disabled={isStreaming}>
+                {isStreaming ? <Loader2 className="animate-spin" /> : <Send />}
               </Button>
             </div>
           )}
