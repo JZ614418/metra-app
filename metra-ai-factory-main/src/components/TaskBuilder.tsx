@@ -148,7 +148,7 @@ const TaskBuilder = () => {
       setShowTaskForm(true);
     }
 
-  }, [currentConversation]);
+  }, [currentConversation, currentConversation?.messages]);
 
   const handleConfirmSchema = () => {
     if (currentConversation) {
