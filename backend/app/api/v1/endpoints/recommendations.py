@@ -72,14 +72,13 @@ async def recommend_models(
         # Stage 1: AI-driven keyword extraction
         prompt = RECOMMENDATION_PROMPT.format(task_definition=task_definition)
         
-        response = await openai.Completion.acreate(
-            engine="gpt-4o-mini", # Or any suitable model
-            prompt=prompt,
+        keyword_response = await openai.ChatCompletion.acreate(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
             max_tokens=50,
-            temperature=0.2,
-            stop=None
+            temperature=0.2
         )
-        search_keywords = response.choices[0].text.strip()
+        search_keywords = keyword_response.choices[0].message['content'].strip()
 
         # Stage 2: Search Hugging Face Hub
         models = hf_api.list_models(
@@ -94,14 +93,14 @@ async def recommend_models(
             # Stage 3: AI-driven data enrichment for each model
             enrichment_prompt = ENRICHMENT_PROMPT.format(model_info=str(model))
             
-            enrichment_response = await openai.Completion.acreate(
-                engine="gpt-4o-mini", # Or any suitable model
-                prompt=enrichment_prompt,
-                max_tokens=50,
-                temperature=0.2,
-                stop=None
+            enrichment_response = await openai.ChatCompletion.acreate(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": enrichment_prompt}],
+                response_format={"type": "json_object"},
+                max_tokens=200,
+                temperature=0.3
             )
-            enriched_data = json.loads(enrichment_response.choices[0].text.strip())
+            enriched_data = json.loads(enrichment_response.choices[0].message['content'].strip())
 
             recommendations.append(ModelRecommendation(
                 modelId=model.modelId,
