@@ -72,13 +72,14 @@ async def recommend_models(
         # Stage 1: AI-driven keyword extraction
         prompt = RECOMMENDATION_PROMPT.format(task_definition=task_definition)
         
-        keyword_response = await openai.ChatCompletion.acreate(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
+        response = await openai.Completion.acreate(
+            engine="gpt-4o-mini", # Or any suitable model
+            prompt=prompt,
             max_tokens=50,
-            temperature=0.2
+            temperature=0.2,
+            stop=None
         )
-        search_keywords = keyword_response.choices[0].message['content'].strip()
+        search_keywords = response.choices[0].text.strip()
 
         # Stage 2: Search Hugging Face Hub
         models = hf_api.list_models(
@@ -93,21 +94,21 @@ async def recommend_models(
             # Stage 3: AI-driven data enrichment for each model
             enrichment_prompt = ENRICHMENT_PROMPT.format(model_info=str(model))
             
-            enrichment_response = await openai.ChatCompletion.acreate(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": enrichment_prompt}],
-                response_format={"type": "json_object"},
-                max_tokens=200,
-                temperature=0.3
+            enrichment_response = await openai.Completion.acreate(
+                engine="gpt-4o-mini", # Or any suitable model
+                prompt=enrichment_prompt,
+                max_tokens=50,
+                temperature=0.2,
+                stop=None
             )
-            enriched_data = json.loads(enrichment_response.choices[0].message['content'].strip())
+            enriched_data = json.loads(enrichment_response.choices[0].text.strip())
 
             recommendations.append(ModelRecommendation(
                 modelId=model.modelId,
-                name=model.modelId.split('/')[-1],
-                author=model.author or "Unknown",
+                name=model.modelId.split('/')[-1], # Simplified name
+                author=model.author,
                 description=getattr(model, 'description', 'No description available.'),
-                recommended=(i == 0),
+                recommended=(i == 0), # Mark the top result as recommended
                 **enriched_data
             ))
             

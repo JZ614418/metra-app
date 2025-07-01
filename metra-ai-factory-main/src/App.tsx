@@ -9,7 +9,6 @@ import Dashboard from '@/pages/Dashboard'
 import Login from '@/pages/Login'
 import Register from '@/pages/Register'
 import NotFound from '@/pages/NotFound'
-import ModelSelection from '@/pages/ModelSelection'
 
 // Components
 import ProtectedRoute from '@/components/ProtectedRoute'
@@ -37,27 +36,29 @@ function App() {
   }, [])
 
   return (
-    <Routes>
-      {/* Public routes */}
-      <Route path="/" element={<Index />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+    <>
+      <Routes>
+        {/* Public routes */}
+        <Route path="/" element={<Index />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        
+        {/* Protected routes */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* 404 */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
       
-      {/* Protected routes */}
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
-      
-      <Route path="/model-selection" element={<ProtectedRoute><ModelSelection /></ProtectedRoute>} />
-      
-      {/* 404 */}
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+      <Toaster />
+    </>
   )
 }
 

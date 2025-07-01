@@ -1,63 +1,100 @@
-import React, { useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Brain, Zap, Database, Award, TrendingUp, Clock, ArrowRight, Info, Loader2 } from 'lucide-react';
+import { Brain, Zap, Database, Award, TrendingUp, Clock, ArrowRight, Info } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useModelStore } from '@/stores/modelStore';
-import { useConversationStore } from '@/stores/conversationStore';
-import { SchemaDisplay } from '@/components/TaskBuilder'; // Assuming SchemaDisplay is exported
+
+interface Model {
+  id: string;
+  name: string;
+  provider: string;
+  architecture: string;
+  parameters: string;
+  description: string;
+  strengths: string[];
+  weaknesses: string[];
+  cost: string;
+  speed: string;
+  accuracy: string;
+  recommended: boolean;
+  expertOpinion: string;
+  icon: string;
+}
 
 const ModelRecommend = () => {
-  const { recommendations, selectedModelId, isLoading, error, fetchRecommendations, selectModel } = useModelStore();
-  const { currentConversation } = useConversationStore();
-  
-  useEffect(() => {
-    // Extract the final schema from the conversation to be used as task definition
-    const lastMessage = currentConversation?.messages?.[currentConversation.messages.length - 1];
-    if (currentConversation?.is_completed && lastMessage?.content.includes("```json")) {
-        const jsonMatch = lastMessage.content.match(/```json\s*([\s\S]*?)\s*```/);
-        if (jsonMatch) {
-            try {
-                const taskDefinition = JSON.parse(jsonMatch[1]);
-                fetchRecommendations(taskDefinition);
-            } catch (e) {
-                console.error("Failed to parse task definition schema for fetching recommendations", e);
-            }
-        }
+  const [selectedModel, setSelectedModel] = useState<string>('bert-base');
+
+  // Task info retrieved from previous step
+  const taskInfo = {
+    taskType: 'classification',
+    inputType: 'text',
+    outputType: 'binary',
+    dataAmount: 'medium',
+    language: 'english',
+    domain: 'customer_service'
+  };
+
+  const models = [
+    {
+      id: 'bert-base',
+      name: 'BERT Base',
+      provider: 'Google',
+      architecture: 'Transformer',
+      parameters: '110M',
+      strengths: ['High accuracy for text classification', 'Good for sentiment analysis', 'Pre-trained on large corpus'],
+      weaknesses: ['Higher computational requirements', 'Larger model size'],
+      recommendScore: 95,
+      trainTime: '~30 min',
+      trainCost: '$5-10',
+      recommended: true,
+      expertOpinion: 'positive',
+      icon: '🤖'
+    },
+    {
+      id: 'distilbert',
+      name: 'DistilBERT',
+      provider: 'Hugging Face',
+      architecture: 'Distilled Transformer',
+      parameters: '66M',
+      strengths: ['40% smaller than BERT', '60% faster', 'Maintains 97% of BERT performance'],
+      weaknesses: ['Slightly lower accuracy', 'Less suitable for complex tasks'],
+      recommendScore: 88,
+      trainTime: '~20 min',
+      trainCost: '$3-5',
+      recommended: false,
+      expertOpinion: 'positive',
+      icon: '⚡'
+    },
+    {
+      id: 'roberta',
+      name: 'RoBERTa',
+      provider: 'Facebook',
+      architecture: 'Optimized BERT',
+      parameters: '125M',
+      strengths: ['Better than BERT on many tasks', 'Robust training approach', 'Excellent for classification'],
+      weaknesses: ['Requires more training data', 'Longer training time'],
+      recommendScore: 82,
+      trainTime: '~45 min',
+      trainCost: '$8-15',
+      recommended: false,
+      expertOpinion: 'neutral',
+      icon: '🔬'
     }
-  }, [currentConversation, fetchRecommendations]);
+  ];
+
+  const handleModelSelect = (modelId: string) => {
+    setSelectedModel(modelId);
+  };
 
   const handleSelectModel = () => {
     // Navigate to data builder module
-    console.log('Selected model:', selectedModelId);
+    console.log('Selected model:', selectedModel);
   };
 
-  const getSelectedModel = () => recommendations.find(m => m.modelId === selectedModelId);
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <Loader2 className="h-12 w-12 animate-spin text-purple-600" />
-        <p className="ml-4 text-lg">Finding the best models for your task...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-8">
-        <Alert variant="destructive">
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            Error fetching recommendations: {error}
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
+  const getSelectedModel = () => models.find(m => m.id === selectedModel);
 
   return (
     <div className="p-8 space-y-6 max-w-6xl mx-auto">
@@ -68,8 +105,32 @@ const ModelRecommend = () => {
             <Brain className="h-5 w-5 text-purple-600" />
             <h3 className="text-lg font-semibold text-gray-900">Task Summary</h3>
           </div>
-          {/* We need the schema from the last step to display here */}
-          {/* <SchemaDisplay schema={...} /> */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+              <p className="text-gray-500">Task Type</p>
+              <p className="font-medium">Classification</p>
+            </div>
+            <div>
+              <p className="text-gray-500">Input Type</p>
+              <p className="font-medium">Text</p>
+            </div>
+            <div>
+              <p className="text-gray-500">Output Type</p>
+              <p className="font-medium">Binary</p>
+            </div>
+            <div>
+              <p className="text-gray-500">Data Amount</p>
+              <p className="font-medium">Medium</p>
+            </div>
+            <div>
+              <p className="text-gray-500">Language</p>
+              <p className="font-medium">English</p>
+            </div>
+            <div>
+              <p className="text-gray-500">Domain</p>
+              <p className="font-medium">Customer Service</p>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -83,18 +144,22 @@ const ModelRecommend = () => {
           </Badge>
         </div>
 
-        <RadioGroup value={selectedModelId || ''} onValueChange={selectModel}>
+        <RadioGroup value={selectedModel} onValueChange={handleModelSelect}>
           <div className="space-y-4">
-            {recommendations.map((model) => (
-              <Label key={model.modelId} htmlFor={model.modelId} className="block cursor-pointer">
+            {models.map((model) => (
+              <Label
+                key={model.id}
+                htmlFor={model.id}
+                className="block cursor-pointer"
+              >
                 <Card className={`border-2 transition-all ${
-                  selectedModelId === model.modelId 
+                  selectedModel === model.id 
                     ? 'border-gray-900 shadow-md bg-gray-900/5' 
                     : 'border-gray-200 hover:border-gray-300'
                 }`}>
                   <CardContent className="p-6">
                     <div className="flex items-start gap-4">
-                      <RadioGroupItem value={model.modelId} id={model.modelId} className="mt-1" />
+                      <RadioGroupItem value={model.id} id={model.id} className="mt-1" />
                       
                       <div className="flex-1 space-y-4">
                         {/* Model header info */}
@@ -182,7 +247,7 @@ const ModelRecommend = () => {
       </div>
 
       {/* Action buttons */}
-      {selectedModelId && (
+      {selectedModel && (
         <Card className="border-0 shadow-sm">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
