@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { useEffect } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { api } from '@/lib/api'
@@ -9,7 +10,7 @@ import Dashboard from '@/pages/Dashboard'
 import Login from '@/pages/Login'
 import Register from '@/pages/Register'
 import NotFound from '@/pages/NotFound'
-import ModelRecommend from './pages/ModelRecommend'
+import ModelRecommend from '@/pages/ModelRecommend'
 
 // Components
 import ProtectedRoute from '@/components/ProtectedRoute'
@@ -37,7 +38,7 @@ function App() {
   }, [])
 
   return (
-    <>
+    <Router>
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<Index />} />
@@ -61,7 +62,7 @@ function App() {
       </Routes>
       
       <Toaster />
-    </>
+    </Router>
   )
 }
 
