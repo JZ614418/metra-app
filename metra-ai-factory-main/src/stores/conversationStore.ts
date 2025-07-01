@@ -57,7 +57,16 @@ interface ConversationStore {
   createTaskDefinition: (conversationId: string, name: string, description?: string) => Promise<TaskDefinition>;
   clearError: () => void;
   reset: () => void;
+  setConversationCompleted: (conversationId: string) => void;
 }
+
+const INTRO_MESSAGE: Message = {
+  id: 'intro-message',
+  conversation_id: 'intro',
+  role: 'assistant',
+  content: "Hello! I'm Metra AI, your assistant for building custom AI models. You don't need any programming knowledge—just tell me what you're trying to achieve, and I'll guide you through the process of defining your task. So, what problem are you looking to solve?",
+  created_at: new Date().toISOString()
+};
 
 export const useConversationStore = create<ConversationStore>((set, get) => ({
   // Initial state
@@ -72,16 +81,15 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   createConversation: async (title?: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.post('/conversations', { title });
-      const conversation = response.data;
+      const conversation = await api.post<Conversation>('/conversations', { title });
       set(state => ({
         conversations: [conversation, ...state.conversations],
-        currentConversation: conversation,
+        currentConversation: { ...conversation, messages: [INTRO_MESSAGE] },
         isLoading: false
       }));
       return conversation;
     } catch (error: any) {
-      set({ error: error.response?.data?.detail || 'Failed to create conversation', isLoading: false });
+      set({ error: error.message || 'Failed to create conversation', isLoading: false });
       throw error;
     }
   },
@@ -90,10 +98,10 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   loadConversations: async () => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.get('/conversations');
-      set({ conversations: response.data, isLoading: false });
+      const conversations = await api.request<ConversationList[]>('/conversations');
+      set({ conversations, isLoading: false });
     } catch (error: any) {
-      set({ error: error.response?.data?.detail || 'Failed to load conversations', isLoading: false });
+      set({ error: error.message || 'Failed to load conversations', isLoading: false });
     }
   },
 
@@ -101,10 +109,10 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   loadConversation: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.get(`/conversations/${id}`);
-      set({ currentConversation: response.data, isLoading: false });
+      const conversation = await api.request<Conversation>(`/conversations/${id}`);
+      set({ currentConversation: conversation, isLoading: false });
     } catch (error: any) {
-      set({ error: error.response?.data?.detail || 'Failed to load conversation', isLoading: false });
+      set({ error: error.message || 'Failed to load conversation', isLoading: false });
     }
   },
 
@@ -112,7 +120,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   sendMessage: async (conversationId: string, content: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.post(`/conversations/${conversationId}/messages`, {
+      const message = await api.post<Message>(`/conversations/${conversationId}/messages`, {
         content,
         role: 'user'
       });
@@ -123,25 +131,25 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         set({
           currentConversation: {
             ...currentConv,
-            messages: [...currentConv.messages, response.data]
+            messages: [...currentConv.messages, message]
           },
           isLoading: false
         });
       }
       
-      return response.data;
+      return message;
     } catch (error: any) {
-      set({ error: error.response?.data?.detail || 'Failed to send message', isLoading: false });
+      set({ error: error.message || 'Failed to send message', isLoading: false });
       throw error;
     }
   },
 
   // Send message with streaming
   sendMessageStream: async (conversationId: string, content: string) => {
-    set({ isStreaming: true, error: null, streamingMessage: '' });
+    set({ isStreaming: true, error: null });
     
     try {
-      // First, add user message
+      // Add user message immediately
       const userMessage: Message = {
         id: Date.now().toString(),
         conversation_id: conversationId,
@@ -149,7 +157,6 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         content,
         created_at: new Date().toISOString()
       };
-      
       const currentConv = get().currentConversation;
       if (currentConv) {
         set({
@@ -160,7 +167,6 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         });
       }
       
-      // Create streaming response
       const responseBody = await api.post<ReadableStream>(
         `/conversations/${conversationId}/messages/stream`,
         { content, role: 'user' },
@@ -169,52 +175,70 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       
       const reader = responseBody?.getReader();
       const decoder = new TextDecoder();
-      let assistantMessage = '';
       
+      let assistantMessageContent = "";
+      const assistantMessageId = (Date.now() + 1).toString();
+      
+      // Add a placeholder for the assistant's message
+      set(state => ({
+        currentConversation: {
+          ...state.currentConversation!,
+          messages: [
+            ...state.currentConversation!.messages,
+            {
+              id: assistantMessageId,
+              role: 'assistant',
+              content: '',
+              conversation_id: conversationId,
+              created_at: new Date().toISOString()
+            }
+          ]
+        }
+      }));
+
       if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
-          
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6);
-              if (data === '[DONE]') {
-                // Streaming complete
-                set({ isStreaming: false });
+        const processStream = async () => {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              set({ isStreaming: false });
+              break;
+            }
+            
+            const rawData = decoder.decode(value, { stream: true });
+            const chunks = rawData.split('data: ').filter(Boolean);
+
+            for (const chunk of chunks) {
+              if (chunk.trim() === '[DONE]') continue;
+              
+              try {
+                const parsedChunk = JSON.parse(chunk);
                 
-                // Add complete assistant message
-                const aiMessage: Message = {
-                  id: (Date.now() + 1).toString(),
-                  conversation_id: conversationId,
-                  role: 'assistant',
-                  content: assistantMessage,
-                  created_at: new Date().toISOString()
-                };
-                
-                const conv = get().currentConversation;
-                if (conv) {
-                  set({
+                // Simulate typing effect by adding characters one by one with a small delay
+                for (const char of parsedChunk) {
+                  assistantMessageContent += char;
+
+                  set(state => ({
                     currentConversation: {
-                      ...conv,
-                      messages: [...conv.messages.slice(0, -1), userMessage, aiMessage],
-                      is_completed: assistantMessage.includes('I now have enough information')
+                      ...state.currentConversation!,
+                      messages: state.currentConversation!.messages.map(msg =>
+                        msg.id === assistantMessageId
+                          ? { ...msg, content: assistantMessageContent }
+                          : msg
+                      )
                     }
-                  });
+                  }));
+                  
+                  await new Promise(resolve => setTimeout(resolve, 5)); // 5ms delay between characters
                 }
-              } else if (data.startsWith('ERROR: ')) {
-                throw new Error(data.slice(7));
-              } else {
-                // Append to streaming message
-                assistantMessage += data;
-                set({ streamingMessage: assistantMessage });
+
+              } catch (e) {
+                console.warn("Failed to parse stream chunk:", chunk);
               }
             }
           }
-        }
+        };
+        await processStream();
       }
     } catch (error: any) {
       set({ error: error.message || 'Failed to send message', isStreaming: false });
@@ -226,7 +250,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   createTaskDefinition: async (conversationId: string, name: string, description?: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.post('/task-definitions', {
+      const taskDefinition = await api.post<TaskDefinition>('/task-definitions', {
         conversation_id: conversationId,
         name,
         description
@@ -243,9 +267,9 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         });
       }
       
-      return response.data;
+      return taskDefinition;
     } catch (error: any) {
-      set({ error: error.response?.data?.detail || 'Failed to create task definition', isLoading: false });
+      set({ error: error.message || 'Failed to create task definition', isLoading: false });
       throw error;
     }
   },
@@ -259,5 +283,14 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     error: null,
     isStreaming: false,
     streamingMessage: ''
-  })
+  }),
+
+  setConversationCompleted: (conversationId: string) => {
+    set(state => {
+      if (state.currentConversation?.id === conversationId) {
+        return { currentConversation: { ...state.currentConversation, is_completed: true } };
+      }
+      return {};
+    });
+  }
 })); 

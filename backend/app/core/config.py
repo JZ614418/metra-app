@@ -15,8 +15,11 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://user:pass@localhost/db")
     
+    # OpenAI
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+
     # CORS
-    BACKEND_CORS_ORIGINS: List[str] = ["https://metratraining.com", "http://localhost:3000", "http://localhost:5173"]
+    BACKEND_CORS_ORIGINS: List[str] = ["https://metratraining.com", "http://localhost:3000", "http://localhost:5173", "https://metra-r7irxtk4-jz614418s-projects.vercel.app"]
     
     class Config:
         case_sensitive = True
