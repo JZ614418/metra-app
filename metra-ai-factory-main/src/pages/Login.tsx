@@ -14,8 +14,8 @@ import { useAuthStore } from '@/stores/authStore'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 
 const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  email: z.string().email({ message: "Invalid email address" }),
+  password: z.string().min(1, { message: "Password is required" }),
 })
 
 type LoginForm = z.infer<typeof loginSchema>
@@ -40,6 +40,7 @@ export default function Login() {
     formState: { errors },
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
+    defaultValues: { email: '', password: '' },
   })
 
   const onSubmit = async (data: LoginForm) => {
@@ -96,37 +97,28 @@ export default function Login() {
                   <p className="text-sm text-red-500">{errors.email.message}</p>
                 )}
               </div>
-              <FormField
-                control={register('password')}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Input
-                          type={showPassword ? 'text' : 'password'}
-                          placeholder="••••••••"
-                          {...field}
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="absolute inset-y-0 right-0 h-full px-3"
-                          onClick={() => setShowPassword(!showPassword)}
-                        >
-                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    {...register('password')}
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 px-3 flex items-center"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4 text-gray-500" /> : <Eye className="h-4 w-4 text-gray-500" />}
+                  </button>
+                </div>
+                {errors.password && (
+                  <p className="text-sm text-red-500">{errors.password.message}</p>
                 )}
-              />
-              {errors.password && (
-                <p className="text-sm text-red-500">{errors.password.message}</p>
-              )}
+              </div>
               <Button
                 type="submit"
                 className="w-full"
