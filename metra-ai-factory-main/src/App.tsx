@@ -9,7 +9,7 @@ import Dashboard from '@/pages/Dashboard'
 import Login from '@/pages/Login'
 import Register from '@/pages/Register'
 import NotFound from '@/pages/NotFound'
-import ModelRecommend from './pages/ModelRecommend'
+import ModelRecommend from '@/components/ModelRecommend'
 
 // Components
 import ProtectedRoute from '@/components/ProtectedRoute'
