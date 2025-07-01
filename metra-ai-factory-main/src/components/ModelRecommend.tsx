@@ -35,10 +35,25 @@ const ModelRecommend = () => {
 
   useEffect(() => {
     const fetchRecommendations = async () => {
-      // ... (logic to get taskSchema from conversationStore, same as before)
-
+      if (!currentConversation?.is_completed) {
+        // ... (error handling)
+        return;
+      }
+      
+      const lastMessage = currentConversation.messages.find(m => m.content.includes("```json"));
+      if (!lastMessage) {
+        // ... (error handling)
+        return;
+      }
+      
+      const jsonMatch = lastMessage.content.match(/```json\s*([\s\S]*?)\s*```/);
+      if (!jsonMatch) {
+        // ... (error handling)
+        return;
+      }
+      
       try {
-        const taskSchema = /* ... get schema ... */;
+        const taskSchema = JSON.parse(jsonMatch[1]);
         const response = await api.post<Model[]>('/recommend', taskSchema);
         setRecommendations(response);
         if (response.length > 0) {
