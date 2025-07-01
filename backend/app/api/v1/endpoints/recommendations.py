@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import openai
 from huggingface_hub import HfApi, ModelFilter
 from typing import List, Dict, Any
+import json
 
 from app.api import deps
 from app.models.user import User
@@ -21,10 +22,19 @@ class TaskDefinition(BaseModel):
 
 class ModelRecommendation(BaseModel):
     modelId: str
+    name: str
+    provider: str = Field(..., alias='author')
+    architecture: str
+    parameters: str
     description: str
-    tags: List[str]
-    downloads: int
-    likes: int
+    strengths: List[str]
+    weaknesses: List[str]
+    trainCost: str
+    trainTime: str
+    accuracy: str
+    recommended: bool
+    expertOpinion: str
+    icon: str
 
 RECOMMENDATION_PROMPT = """
 You are an expert Hugging Face model curator. Your task is to analyze the following user's task definition (JSON) and generate a list of precise, relevant keywords and tags that can be used to search for the best possible models on the Hugging Face Hub. 
@@ -33,6 +43,19 @@ Consider all aspects like task, language, performance requirements, and domain. 
 
 User's Task Definition:
 {task_definition}
+"""
+
+ENRICHMENT_PROMPT = """
+You are an AI model analyst. Based on the following Hugging Face model info, provide a concise analysis for a non-technical user.
+Generate a JSON object with the following keys: "architecture", "parameters", "strengths" (array of 3 strings), "weaknesses" (array of 2 strings), "trainCost", "trainTime", "accuracy", "expertOpinion", "icon".
+- For icon, choose a single relevant emoji.
+- For trainCost, estimate a range (e.g., "$5-10").
+- For trainTime, estimate a time (e.g., "~30 min").
+- For accuracy, provide a qualitative rating (e.g., "High (95%+)").
+- Be realistic and base your analysis on the model's known characteristics.
+
+Model Info:
+{model_info}
 """
 
 @router.post("/recommend", response_model=List[ModelRecommendation])
@@ -67,13 +90,26 @@ async def recommend_models(
         )
         
         recommendations = []
-        for model in models:
+        for i, model in enumerate(models):
+            # Stage 3: AI-driven data enrichment for each model
+            enrichment_prompt = ENRICHMENT_PROMPT.format(model_info=str(model))
+            
+            enrichment_response = await openai.Completion.acreate(
+                engine="gpt-4o-mini", # Or any suitable model
+                prompt=enrichment_prompt,
+                max_tokens=50,
+                temperature=0.2,
+                stop=None
+            )
+            enriched_data = json.loads(enrichment_response.choices[0].text.strip())
+
             recommendations.append(ModelRecommendation(
                 modelId=model.modelId,
+                name=model.modelId.split('/')[-1], # Simplified name
+                author=model.author,
                 description=getattr(model, 'description', 'No description available.'),
-                tags=model.tags,
-                downloads=getattr(model, 'downloads', 0),
-                likes=getattr(model, 'likes', 0)
+                recommended=(i == 0), # Mark the top result as recommended
+                **enriched_data
             ))
             
         return recommendations
