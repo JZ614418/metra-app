@@ -13,6 +13,7 @@ import NotFound from '@/pages/NotFound'
 // Components
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { Toaster } from '@/components/ui/toaster'
+import ModelRecommend from './components/ModelRecommend'
 
 function App() {
   const { token, setUser, setToken } = useAuthStore()
@@ -49,6 +50,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/model-recommend"
+          element={
+            <ProtectedRoute>
+              <ModelRecommend />
             </ProtectedRoute>
           }
         />

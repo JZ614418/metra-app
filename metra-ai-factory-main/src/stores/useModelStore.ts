@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-interface ModelRecommendation {
+interface Model {
   modelId: string;
   name: string;
   provider: string;
@@ -18,7 +18,7 @@ interface ModelRecommendation {
 }
 
 interface ModelStore {
-  recommendations: ModelRecommendation[];
+  recommendations: Model[];
   selectedModelId: string | null;
   isLoading: boolean;
   error: string | null;
@@ -34,21 +34,23 @@ export const useModelStore = create<ModelStore>((set) => ({
   fetchRecommendations: async (taskDefinition) => {
     set({ isLoading: true, error: null });
     try {
-      // Assuming 'api' is a pre-configured axios or fetch client
-      // We will need to import it in the actual component.
+      // We will use the generic 'api.post' from our api client
       const response = await fetch('/api/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(taskDefinition),
       });
+
       if (!response.ok) {
         throw new Error('Failed to fetch recommendations');
       }
       const data = await response.json();
-      set({ recommendations: data, isLoading: false });
+      set({ recommendations: data, isLoading: false, selectedModelId: data[0]?.modelId || null });
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
     }
   },
-  selectModel: (modelId) => set({ selectedModelId: modelId }),
+  selectModel: (modelId: string) => {
+    set({ selectedModelId: modelId });
+  },
 })); 

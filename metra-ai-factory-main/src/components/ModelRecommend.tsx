@@ -4,56 +4,74 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Brain, Zap, Database, Award, TrendingUp, Clock, ArrowRight, Info, Loader2 } from 'lucide-react';
+import { Brain, Zap, Database, Award, TrendingUp, Clock, ArrowRight, Info } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useModelStore } from '@/stores/modelStore';
+import { useModelStore } from '@/stores/useModelStore';
 import { useConversationStore } from '@/stores/conversationStore';
-import { SchemaDisplay } from '@/components/TaskBuilder'; // Assuming SchemaDisplay is exported
+import { Skeleton } from '@/components/ui/skeleton';
+import { useNavigate } from 'react-router-dom';
+
+interface Model {
+  id: string;
+  name: string;
+  provider: string;
+  architecture: string;
+  parameters: string;
+  description: string;
+  strengths: string[];
+  weaknesses: string[];
+  cost: string;
+  speed: string;
+  accuracy: string;
+  recommended: boolean;
+  expertOpinion: string;
+  icon: string;
+}
 
 const ModelRecommend = () => {
+  const navigate = useNavigate();
   const { recommendations, selectedModelId, isLoading, error, fetchRecommendations, selectModel } = useModelStore();
   const { currentConversation } = useConversationStore();
   
+  const taskDefinition = currentConversation?.messages.find(m => m.content.includes("```json"))?.content;
+
   useEffect(() => {
-    // Extract the final schema from the conversation to be used as task definition
-    const lastMessage = currentConversation?.messages?.[currentConversation.messages.length - 1];
-    if (currentConversation?.is_completed && lastMessage?.content.includes("```json")) {
-        const jsonMatch = lastMessage.content.match(/```json\s*([\s\S]*?)\s*```/);
-        if (jsonMatch) {
-            try {
-                const taskDefinition = JSON.parse(jsonMatch[1]);
-                fetchRecommendations(taskDefinition);
-            } catch (e) {
-                console.error("Failed to parse task definition schema for fetching recommendations", e);
-            }
+    if (taskDefinition) {
+      const jsonMatch = taskDefinition.match(/```json\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        try {
+          const schema = JSON.parse(jsonMatch[1]);
+          fetchRecommendations(schema);
+        } catch (e) {
+          console.error("Failed to parse task definition schema:", e);
         }
+      }
     }
-  }, [currentConversation, fetchRecommendations]);
+  }, [taskDefinition, fetchRecommendations]);
 
   const handleSelectModel = () => {
-    // Navigate to data builder module
     console.log('Selected model:', selectedModelId);
+    navigate('/data-builder');
   };
 
   const getSelectedModel = () => recommendations.find(m => m.modelId === selectedModelId);
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <Loader2 className="h-12 w-12 animate-spin text-purple-600" />
-        <p className="ml-4 text-lg">Finding the best models for your task...</p>
+      <div className="p-8 space-y-6 max-w-6xl mx-auto">
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-64 w-full" />
       </div>
     );
   }
-
+  
   if (error) {
     return (
-      <div className="p-8">
+      <div className="p-8 max-w-6xl mx-auto">
         <Alert variant="destructive">
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            Error fetching recommendations: {error}
-          </AlertDescription>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
         </Alert>
       </div>
     );
@@ -68,8 +86,32 @@ const ModelRecommend = () => {
             <Brain className="h-5 w-5 text-purple-600" />
             <h3 className="text-lg font-semibold text-gray-900">Task Summary</h3>
           </div>
-          {/* We need the schema from the last step to display here */}
-          {/* <SchemaDisplay schema={...} /> */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+              <p className="text-gray-500">Task Type</p>
+              <p className="font-medium">Classification</p>
+            </div>
+            <div>
+              <p className="text-gray-500">Input Type</p>
+              <p className="font-medium">Text</p>
+            </div>
+            <div>
+              <p className="text-gray-500">Output Type</p>
+              <p className="font-medium">Binary</p>
+            </div>
+            <div>
+              <p className="text-gray-500">Data Amount</p>
+              <p className="font-medium">Medium</p>
+            </div>
+            <div>
+              <p className="text-gray-500">Language</p>
+              <p className="font-medium">English</p>
+            </div>
+            <div>
+              <p className="text-gray-500">Domain</p>
+              <p className="font-medium">Customer Service</p>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -86,7 +128,11 @@ const ModelRecommend = () => {
         <RadioGroup value={selectedModelId || ''} onValueChange={selectModel}>
           <div className="space-y-4">
             {recommendations.map((model) => (
-              <Label key={model.modelId} htmlFor={model.modelId} className="block cursor-pointer">
+              <Label
+                key={model.modelId}
+                htmlFor={model.modelId}
+                className="block cursor-pointer"
+              >
                 <Card className={`border-2 transition-all ${
                   selectedModelId === model.modelId 
                     ? 'border-gray-900 shadow-md bg-gray-900/5' 
@@ -148,11 +194,11 @@ const ModelRecommend = () => {
                         <div className="flex items-center gap-6 pt-2">
                           <div className="flex items-center gap-2">
                             <Database className="h-4 w-4 text-gray-400" />
-                            <span className="text-sm text-gray-600">Training Cost: <span className="font-medium">{model.trainCost}</span></span>
+                            <span className="text-sm text-gray-600">Training Cost: <span className="font-medium">{model.cost}</span></span>
                           </div>
                           <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4 text-gray-400" />
-                            <span className="text-sm text-gray-600">Training Time: <span className="font-medium">{model.trainTime}</span></span>
+                            <span className="text-sm text-gray-600">Training Time: <span className="font-medium">{model.speed}</span></span>
                           </div>
                           <div className="flex items-center gap-2">
                             <TrendingUp className="h-4 w-4 text-gray-400" />
