@@ -104,10 +104,10 @@ async def recommend_models(
 
             recommendations.append(ModelRecommendation(
                 modelId=model.modelId,
-                name=model.modelId.split('/')[-1], # Simplified name
-                author=model.author,
+                name=model.modelId.split('/')[-1],
+                author=model.author or "Unknown",
                 description=getattr(model, 'description', 'No description available.'),
-                recommended=(i == 0), # Mark the top result as recommended
+                recommended=(i == 0),
                 **enriched_data
             ))
             
