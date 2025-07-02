@@ -8,6 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import { Brain, Zap, Database, Award, TrendingUp, Clock, ArrowRight, Info } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const ModelRecommend = () => {
   const navigate = useNavigate();
@@ -19,7 +25,16 @@ const ModelRecommend = () => {
     setRecommendedModels,
     setLoading,
     setError,
+    recommendations,
+    selectedModelId,
+    fetchRecommendations,
+    selectModel,
   } = useModelStore();
+
+  const currentConversation = useConversationStore((state) => state.currentConversation);
+  
+  const lastAiMessage = currentConversation?.messages.filter(m => m.role === 'assistant').pop();
+  const schemaMatch = lastAiMessage?.content.match(/```json\s*([\s\S]*?)\s*```/);
 
   useEffect(() => {
     if (!lastFinalizedTask) {
@@ -44,47 +59,108 @@ const ModelRecommend = () => {
     getRecommendations();
   }, [lastFinalizedTask, setRecommendedModels, setLoading, setError, navigate]);
 
-  return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold">Model Recommendations</h1>
-        <p className="text-muted-foreground mt-2">
-          Based on your task definition, here are the top 5 open-source models we recommend.
-        </p>
+  useEffect(() => {
+    if (schemaMatch) {
+      try {
+        const schema = JSON.parse(schemaMatch[1]);
+        fetchRecommendations(schema);
+      } catch (e) {
+        console.error("Failed to parse task definition schema:", e);
+      }
+    }
+  }, [schemaMatch, fetchRecommendations]);
+
+  const handleSelectModel = () => {
+    navigate('/data-builder');
+  };
+
+  const getSelectedModel = () => recommendations.find(m => m.modelId === selectedModelId);
+
+  if (isLoading) {
+    return (
+      <div className="p-8 space-y-6 max-w-6xl mx-auto">
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-64 w-full" />
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Your Task Definition Summary</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {lastFinalizedTask ? (
-            <SchemaDisplay schema={lastFinalizedTask} />
-          ) : (
-            <p className="text-muted-foreground">No task definition found.</p>
-          )}
-        </CardContent>
-      </Card>
-      
-      {isLoading && (
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="w-12 h-12 animate-spin text-primary" />
-        </div>
-      )}
-
-      {error && (
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="p-8 max-w-6xl mx-auto">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
-      )}
+      </div>
+    );
+  }
 
-      {!isLoading && !error && recommendedModels.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {recommendedModels.map((model) => (
-            <ModelCard key={model.modelId} model={model} />
-          ))}
-        </div>
+  return (
+    <div className="p-8 space-y-6 max-w-6xl mx-auto">
+      {/* Recommended Open Source Models section */}
+      <div className="space-y-4">
+        <h2 className="text-2xl font-semibold">Recommended Models</h2>
+        <RadioGroup value={selectedModelId || ''} onValueChange={selectModel}>
+          <div className="space-y-4">
+            {recommendations.map((model) => (
+              <Label key={model.modelId} htmlFor={model.modelId} className="block cursor-pointer">
+                <Card className={`border-2 transition-all ${selectedModelId === model.modelId ? 'border-gray-900' : 'border-gray-200'}`}>
+                  <CardContent className="p-6">
+                    <div className="flex items-start gap-4">
+                      <RadioGroupItem value={model.modelId} id={model.modelId} />
+                      <div className="flex-1 space-y-4">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="text-lg font-semibold">{model.name}</h3>
+                            <p className="text-sm text-gray-600">{model.provider} • {model.parameters} parameters</p>
+                          </div>
+                          {model.recommended && <Badge>Recommended</Badge>}
+                        </div>
+                        <p className="text-sm">{model.description}</p>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="font-medium">Strengths</p>
+                            <ul>{model.strengths.map(s => <li key={s}>{s}</li>)}</ul>
+                          </div>
+                          <div>
+                            <p className="font-medium">Considerations</p>
+                            <ul>{model.weaknesses.map(w => <li key={w}>{w}</li>)}</ul>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-6">
+                          <span>Cost: {model.trainCost}</span>
+                          <span>Time: {model.trainTime}</span>
+                          <span>Accuracy: {model.accuracy}</span>
+                        </div>
+                        <div>
+                          <p className="font-medium">AI Expert Opinion</p>
+                          <p>{model.expertOpinion}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Label>
+            ))}
+          </div>
+        </RadioGroup>
+      </div>
+
+      {/* Action buttons section */}
+      {selectedModelId && (
+        <Card>
+          <CardContent className="p-6 flex items-center justify-between">
+            <div>
+              <p>Selected Model</p>
+              <p className="font-semibold">{getSelectedModel()?.name}</p>
+            </div>
+            <Button onClick={handleSelectModel}>
+              Next: Prepare Training Data <ArrowRight className="ml-2" />
+            </Button>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
