@@ -1,264 +1,150 @@
 import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
-import { Brain, Zap, Database, Award, TrendingUp, Clock, ArrowRight, Info, AlertCircle } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useModelStore } from '@/stores/useModelStore';
 import { useConversationStore } from '@/stores/conversationStore';
-import { Skeleton } from '@/components/ui/skeleton';
-
-interface Model {
-  id: string;
-  name: string;
-  provider: string;
-  architecture: string;
-  parameters: string;
-  description: string;
-  strengths: string[];
-  weaknesses: string[];
-  cost: string;
-  speed: string;
-  accuracy: string;
-  recommended: boolean;
-  expertOpinion: string;
-  icon: string;
-}
+import { useModelStore } from '@/stores/modelStore';
+import { api } from '@/lib/api';
+import { ModelCard } from '@/components/ModelCard';
+import SchemaDisplay from '@/components/SchemaDisplay';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, AlertCircle, Sparkles, Search } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const ModelRecommend = () => {
   const navigate = useNavigate();
-  const { recommendations, selectedModelId, isLoading, error, fetchRecommendations, selectModel } = useModelStore();
-  const { currentConversation } = useConversationStore();
-  
-  const lastAiMessage = currentConversation?.messages.filter(m => m.role === 'assistant').pop();
-  const schemaMatch = lastAiMessage?.content.match(/```json\s*([\s\S]*?)\s*```/);
+  const { lastFinalizedTask } = useConversationStore();
+  const {
+    recommendedModels,
+    isLoading,
+    error,
+    searchKeywords,
+    setRecommendedModels,
+    setLoading,
+    setError,
+    setSearchKeywords,
+  } = useModelStore();
 
   useEffect(() => {
-    if (schemaMatch) {
-      try {
-        const schema = JSON.parse(schemaMatch[1]);
-        fetchRecommendations(schema);
-      } catch (e) {
-        console.error("Failed to parse task definition schema:", e);
-      }
+    if (!lastFinalizedTask) {
+      // If there's no task, redirect to the task builder
+      navigate('/');
+      return;
     }
-  }, [schemaMatch, fetchRecommendations]);
 
-  const handleSelectModel = () => {
-    navigate('/data-builder');
-  };
+    const getRecommendations = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await api.fetchRecommendations(lastFinalizedTask);
+        setRecommendedModels(response.recommendations);
+        setSearchKeywords(response.search_keywords);
+      } catch (err: any) {
+        setError(err.message || 'Failed to fetch model recommendations.');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const getSelectedModel = () => recommendations.find(m => m.modelId === selectedModelId);
-
-  if (isLoading) {
-    return (
-      <div className="p-8 space-y-6 max-w-6xl mx-auto">
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-64 w-full" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
-  }
-  
-  if (error) {
-    return (
-      <div className="p-8 max-w-6xl mx-auto">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
+    getRecommendations();
+  }, [lastFinalizedTask, setRecommendedModels, setLoading, setError, setSearchKeywords, navigate]);
 
   return (
-    <div className="p-8 space-y-6 max-w-6xl mx-auto">
-      {/* Task summary */}
-      <Card className="border-0 shadow-sm bg-purple-50/30">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <Brain className="h-5 w-5 text-purple-600" />
-            <h3 className="text-lg font-semibold text-gray-900">Task Summary</h3>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-              <p className="text-gray-500">Task Type</p>
-              <p className="font-medium">Classification</p>
-            </div>
-            <div>
-              <p className="text-gray-500">Input Type</p>
-              <p className="font-medium">Text</p>
-            </div>
-            <div>
-              <p className="text-gray-500">Output Type</p>
-              <p className="font-medium">Binary</p>
-            </div>
-            <div>
-              <p className="text-gray-500">Data Amount</p>
-              <p className="font-medium">Medium</p>
-            </div>
-            <div>
-              <p className="text-gray-500">Language</p>
-              <p className="font-medium">English</p>
-            </div>
-            <div>
-              <p className="text-gray-500">Domain</p>
-              <p className="font-medium">Customer Service</p>
-            </div>
-          </div>
+    <div className="p-8 max-w-7xl mx-auto space-y-8">
+      <div className="text-center space-y-4">
+        <div className="flex items-center justify-center gap-2">
+          <Sparkles className="h-8 w-8 text-purple-600" />
+          <h1 className="text-3xl font-bold">Smart Model Recommendations</h1>
+        </div>
+        <p className="text-gray-600 max-w-2xl mx-auto">
+          Based on your task definition, our AI has analyzed your requirements and found the most suitable open-source models from Hugging Face Hub.
+        </p>
+      </div>
+
+      {/* Task Summary */}
+      <Card className="border-purple-200 bg-purple-50/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <span>Your Task Definition</span>
+            <Badge variant="secondary">Analyzed</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {lastFinalizedTask ? (
+            <SchemaDisplay schema={lastFinalizedTask} />
+          ) : (
+            <p className="text-gray-500">No task definition found.</p>
+          )}
         </CardContent>
       </Card>
 
-      {/* Model recommendation list */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-semibold text-gray-900">Recommended Open Source Models</h2>
-          <Badge variant="outline" className="text-purple-600 border-purple-200 bg-purple-50/50">
-            <Zap className="h-3 w-3 mr-1" />
-            Smart Recommendation
-          </Badge>
-        </div>
-
-        <RadioGroup value={selectedModelId || ''} onValueChange={selectModel}>
-          <div className="space-y-4">
-            {recommendations.map((model) => (
-              <Label
-                key={model.modelId}
-                htmlFor={model.modelId}
-                className="block cursor-pointer"
-              >
-                <Card className={`border-2 transition-all ${
-                  selectedModelId === model.modelId 
-                    ? 'border-gray-900 shadow-md bg-gray-900/5' 
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}>
-                  <CardContent className="p-6">
-                    <div className="flex items-start gap-4">
-                      <RadioGroupItem value={model.modelId} id={model.modelId} className="mt-1" />
-                      
-                      <div className="flex-1 space-y-4">
-                        {/* Model header info */}
-                        <div className="flex items-start justify-between">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <h3 className="text-lg font-semibold text-gray-900">{model.name}</h3>
-                              {model.recommended && (
-                                <Badge className="bg-gray-900 text-white">
-                                  <Award className="h-3 w-3 mr-1" />
-                                  Recommended
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-sm text-gray-600">
-                              {model.provider} • {model.parameters} parameters
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Model description */}
-                        <p className="text-sm text-gray-600">{model.description}</p>
-
-                        {/* Pros and cons */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm font-medium text-gray-700 mb-2">Strengths</p>
-                            <ul className="space-y-1">
-                              {model.strengths.map((strength, index) => (
-                                <li key={index} className="text-sm text-gray-600 flex items-center gap-2">
-                                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                                  {strength}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-700 mb-2">Considerations</p>
-                            <ul className="space-y-1">
-                              {model.weaknesses.map((weakness, index) => (
-                                <li key={index} className="text-sm text-gray-600 flex items-center gap-2">
-                                  <div className="w-1.5 h-1.5 bg-orange-400 rounded-full"></div>
-                                  {weakness}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-
-                        {/* Performance metrics */}
-                        <div className="flex items-center gap-6 pt-2">
-                          <div className="flex items-center gap-2">
-                            <Database className="h-4 w-4 text-gray-400" />
-                            <span className="text-sm text-gray-600">Training Cost: <span className="font-medium">{model.cost}</span></span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-gray-400" />
-                            <span className="text-sm text-gray-600">Training Time: <span className="font-medium">{model.speed}</span></span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <TrendingUp className="h-4 w-4 text-gray-400" />
-                            <span className="text-sm text-gray-600">Estimated Accuracy: <span className="font-medium">{model.accuracy}</span></span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 text-green-700">
-                          <Award className="h-4 w-4" />
-                          <span className="text-sm font-medium">AI Expert Opinion</span>
-                        </div>
-                        <p className="text-sm text-gray-600">
-                          {model.recommended 
-                            ? "This model is perfect for your task. It offers the best balance between accuracy and efficiency for customer complaint classification."
-                            : model.expertOpinion === 'positive'
-                            ? "This is a solid alternative that can also work well for your needs, especially if you have resource constraints."
-                            : "This model could work but may require more resources or data for optimal results."}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Label>
-            ))}
-          </div>
-        </RadioGroup>
-      </div>
-
-      {/* Action buttons */}
-      {selectedModelId && (
-        <Card className="border-0 shadow-sm">
+      {/* AI Search Keywords */}
+      {searchKeywords && !isLoading && (
+        <Card className="border-gray-200 bg-gray-50/50">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Selected Model</p>
-                <p className="font-semibold text-gray-900">{getSelectedModel()?.name}</p>
+            <div className="flex items-start gap-3">
+              <Search className="h-5 w-5 text-gray-600 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-700 mb-2">
+                  AI-Generated Search Strategy
+                </p>
+                <p className="text-sm text-gray-600">
+                  Our AI analyzed your task and searched for models using these keywords:
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {searchKeywords.split(',').map((keyword, index) => (
+                    <Badge key={index} variant="outline" className="text-xs">
+                      {keyword.trim()}
+                    </Badge>
+                  ))}
+                </div>
               </div>
-              <Button 
-                onClick={handleSelectModel}
-                className="bg-gray-900 hover:bg-gray-800"
-              >
-                Next: Prepare Training Data
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
             </div>
           </CardContent>
         </Card>
       )}
+      
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <Loader2 className="w-12 h-12 animate-spin text-purple-600" />
+          <p className="text-gray-600">Analyzing your requirements and searching for the best models...</p>
+        </div>
+      )}
 
-      <Card className="border-0 shadow-sm">
-        <CardContent className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900">Why BERT Base?</h3>
-          <p className="text-sm text-gray-500">AI recommendation explanation</p>
-          <Alert className="border-green-200 bg-green-50/50">
-            <Info className="h-4 w-4 text-green-600" />
-            <AlertDescription className="text-sm text-gray-700">
-              <strong>AI Analysis:</strong> Based on your text classification task with customer reviews, 
-              BERT Base offers the best balance of accuracy (95%+) and training efficiency. Its pre-training 
-              on massive text data makes it ideal for understanding customer sentiment nuances.
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
+      {/* Error State */}
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Model Recommendations */}
+      {!isLoading && !error && recommendedModels.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Top {recommendedModels.length} Recommended Models</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {recommendedModels.map((model) => (
+              <ModelCard key={model.model_id} model={model} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* No results */}
+      {!isLoading && !error && recommendedModels.length === 0 && (
+        <Card className="border-orange-200 bg-orange-50/30">
+          <CardContent className="p-6">
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                No models found matching your specific requirements. This might be because your task is very specialized. 
+                Try simplifying your requirements or contact support for assistance.
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

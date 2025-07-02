@@ -117,6 +117,14 @@ class ApiClient {
       body: JSON.stringify({ email }),
     })
   }
+
+  // Model Recommendation endpoints
+  async fetchRecommendations(taskDefinition: any) {
+    return this.request('/models/recommend', {
+      method: 'POST',
+      body: JSON.stringify({ task_definition: taskDefinition }),
+    })
+  }
 }
 
 export const api = new ApiClient() 

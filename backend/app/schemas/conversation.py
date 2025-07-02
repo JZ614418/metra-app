@@ -78,4 +78,70 @@ class TaskDefinition(TaskDefinitionBase):
     updated_at: Optional[datetime] = None
     
     class Config:
-        from_attributes = True 
+        from_attributes = True
+
+
+# Model Recommendation Schemas
+class ModelRecommendationRequest(BaseModel):
+    task_definition: dict
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "task_definition": {
+                    "task_name": "Customer Complaint Classification",
+                    "task_type": "text-classification",
+                    "domain": "customer_service",
+                    "language": "english",
+                    "requirements": {
+                        "accuracy": "high",
+                        "speed": "medium"
+                    }
+                }
+            }
+        }
+
+
+class ModelRecommendation(BaseModel):
+    model_id: str
+    model_name: str
+    description: Optional[str] = None
+    tags: List[str] = []
+    downloads: int = 0
+    likes: int = 0
+    author: Optional[str] = None
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "model_id": "distilbert-base-uncased-finetuned-sst-2-english",
+                "model_name": "DistilBERT base uncased (SST-2)",
+                "description": "This model is a fine-tune checkpoint of DistilBERT-base-uncased, fine-tuned on SST-2.",
+                "tags": ["text-classification", "distilbert", "english"],
+                "downloads": 1234567,
+                "likes": 234,
+                "author": "huggingface"
+            }
+        }
+
+
+class ModelRecommendationResponse(BaseModel):
+    recommendations: List[ModelRecommendation]
+    search_keywords: str  # AI 生成的搜索关键词
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "recommendations": [
+                    {
+                        "model_id": "distilbert-base-uncased-finetuned-sst-2-english",
+                        "model_name": "DistilBERT base uncased (SST-2)",
+                        "description": "Fine-tuned on sentiment analysis",
+                        "tags": ["text-classification", "distilbert"],
+                        "downloads": 1234567,
+                        "likes": 234
+                    }
+                ],
+                "search_keywords": "text-classification, sentiment-analysis, english, customer-service"
+            }
+        } 
