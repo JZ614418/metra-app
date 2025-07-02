@@ -23,4 +23,11 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 def root():
-    return {"message": "Metra Backend API"} 
+    return {"message": "Metra Backend API"}
+
+# Add startup event for debugging
+@app.on_event("startup")
+async def startup_event():
+    print("FastAPI application started successfully!")
+    print(f"CORS origins: {settings.BACKEND_CORS_ORIGINS}")
+    print(f"API version: {settings.API_V1_STR}") 
