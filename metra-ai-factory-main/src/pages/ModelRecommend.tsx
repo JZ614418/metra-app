@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Brain, Zap, Database, Award, TrendingUp, Clock, ArrowRight, Info } from 'lucide-react';
+import { Brain, Zap, Database, Award, TrendingUp, Clock, ArrowRight, Info, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useModelStore } from '@/stores/useModelStore';
+import { useConversationStore } from '@/stores/conversationStore';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Model {
   id: string;
@@ -25,76 +29,50 @@ interface Model {
 }
 
 const ModelRecommend = () => {
-  const [selectedModel, setSelectedModel] = useState<string>('bert-base');
+  const navigate = useNavigate();
+  const { recommendations, selectedModelId, isLoading, error, fetchRecommendations, selectModel } = useModelStore();
+  const { currentConversation } = useConversationStore();
+  
+  const lastAiMessage = currentConversation?.messages.filter(m => m.role === 'assistant').pop();
+  const schemaMatch = lastAiMessage?.content.match(/```json\s*([\s\S]*?)\s*```/);
 
-  // Task info retrieved from previous step
-  const taskInfo = {
-    taskType: 'classification',
-    inputType: 'text',
-    outputType: 'binary',
-    dataAmount: 'medium',
-    language: 'english',
-    domain: 'customer_service'
-  };
-
-  const models = [
-    {
-      id: 'bert-base',
-      name: 'BERT Base',
-      provider: 'Google',
-      architecture: 'Transformer',
-      parameters: '110M',
-      strengths: ['High accuracy for text classification', 'Good for sentiment analysis', 'Pre-trained on large corpus'],
-      weaknesses: ['Higher computational requirements', 'Larger model size'],
-      recommendScore: 95,
-      trainTime: '~30 min',
-      trainCost: '$5-10',
-      recommended: true,
-      expertOpinion: 'positive',
-      icon: '🤖'
-    },
-    {
-      id: 'distilbert',
-      name: 'DistilBERT',
-      provider: 'Hugging Face',
-      architecture: 'Distilled Transformer',
-      parameters: '66M',
-      strengths: ['40% smaller than BERT', '60% faster', 'Maintains 97% of BERT performance'],
-      weaknesses: ['Slightly lower accuracy', 'Less suitable for complex tasks'],
-      recommendScore: 88,
-      trainTime: '~20 min',
-      trainCost: '$3-5',
-      recommended: false,
-      expertOpinion: 'positive',
-      icon: '⚡'
-    },
-    {
-      id: 'roberta',
-      name: 'RoBERTa',
-      provider: 'Facebook',
-      architecture: 'Optimized BERT',
-      parameters: '125M',
-      strengths: ['Better than BERT on many tasks', 'Robust training approach', 'Excellent for classification'],
-      weaknesses: ['Requires more training data', 'Longer training time'],
-      recommendScore: 82,
-      trainTime: '~45 min',
-      trainCost: '$8-15',
-      recommended: false,
-      expertOpinion: 'neutral',
-      icon: '🔬'
+  useEffect(() => {
+    if (schemaMatch) {
+      try {
+        const schema = JSON.parse(schemaMatch[1]);
+        fetchRecommendations(schema);
+      } catch (e) {
+        console.error("Failed to parse task definition schema:", e);
+      }
     }
-  ];
-
-  const handleModelSelect = (modelId: string) => {
-    setSelectedModel(modelId);
-  };
+  }, [schemaMatch, fetchRecommendations]);
 
   const handleSelectModel = () => {
-    // Navigate to data builder module
-    console.log('Selected model:', selectedModel);
+    navigate('/data-builder');
   };
 
-  const getSelectedModel = () => models.find(m => m.id === selectedModel);
+  const getSelectedModel = () => recommendations.find(m => m.modelId === selectedModelId);
+
+  if (isLoading) {
+    return (
+      <div className="p-8 space-y-6 max-w-6xl mx-auto">
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="p-8 max-w-6xl mx-auto">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 space-y-6 max-w-6xl mx-auto">
@@ -144,22 +122,22 @@ const ModelRecommend = () => {
           </Badge>
         </div>
 
-        <RadioGroup value={selectedModel} onValueChange={handleModelSelect}>
+        <RadioGroup value={selectedModelId || ''} onValueChange={selectModel}>
           <div className="space-y-4">
-            {models.map((model) => (
+            {recommendations.map((model) => (
               <Label
-                key={model.id}
-                htmlFor={model.id}
+                key={model.modelId}
+                htmlFor={model.modelId}
                 className="block cursor-pointer"
               >
                 <Card className={`border-2 transition-all ${
-                  selectedModel === model.id 
+                  selectedModelId === model.modelId 
                     ? 'border-gray-900 shadow-md bg-gray-900/5' 
                     : 'border-gray-200 hover:border-gray-300'
                 }`}>
                   <CardContent className="p-6">
                     <div className="flex items-start gap-4">
-                      <RadioGroupItem value={model.id} id={model.id} className="mt-1" />
+                      <RadioGroupItem value={model.modelId} id={model.modelId} className="mt-1" />
                       
                       <div className="flex-1 space-y-4">
                         {/* Model header info */}
@@ -213,11 +191,11 @@ const ModelRecommend = () => {
                         <div className="flex items-center gap-6 pt-2">
                           <div className="flex items-center gap-2">
                             <Database className="h-4 w-4 text-gray-400" />
-                            <span className="text-sm text-gray-600">Training Cost: <span className="font-medium">{model.trainCost}</span></span>
+                            <span className="text-sm text-gray-600">Training Cost: <span className="font-medium">{model.cost}</span></span>
                           </div>
                           <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4 text-gray-400" />
-                            <span className="text-sm text-gray-600">Training Time: <span className="font-medium">{model.trainTime}</span></span>
+                            <span className="text-sm text-gray-600">Training Time: <span className="font-medium">{model.speed}</span></span>
                           </div>
                           <div className="flex items-center gap-2">
                             <TrendingUp className="h-4 w-4 text-gray-400" />
@@ -247,7 +225,7 @@ const ModelRecommend = () => {
       </div>
 
       {/* Action buttons */}
-      {selectedModel && (
+      {selectedModelId && (
         <Card className="border-0 shadow-sm">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">

@@ -64,18 +64,16 @@ async def recommend_models(
     current_user: User = Depends(deps.get_current_active_user)
 ):
     """
-    Recommends Hugging Face models based on a two-stage process:
-    1. AI-driven keyword extraction from the task definition.
-    2. API call to Hugging Face Hub using the extracted keywords.
+    Recommends Hugging Face models based on a three-stage process.
     """
     try:
         # Stage 1: AI-driven keyword extraction
-        prompt = RECOMMENDATION_PROMPT.format(task_definition=task_definition)
+        prompt = RECOMMENDATION_PROMPT.format(task_definition=json.dumps(task_definition, indent=2))
         
         response = await openai.Completion.acreate(
-            engine="gpt-4o-mini", # Or any suitable model
+            engine="gpt-4o-mini",
             prompt=prompt,
-            max_tokens=50,
+            max_tokens=60,
             temperature=0.2,
             stop=None
         )
@@ -95,20 +93,20 @@ async def recommend_models(
             enrichment_prompt = ENRICHMENT_PROMPT.format(model_info=str(model))
             
             enrichment_response = await openai.Completion.acreate(
-                engine="gpt-4o-mini", # Or any suitable model
+                engine="gpt-4o-mini",
                 prompt=enrichment_prompt,
-                max_tokens=50,
-                temperature=0.2,
-                stop=None
+                max_tokens=200,
+                temperature=0.3
             )
-            enriched_data = json.loads(enrichment_response.choices[0].text.strip())
+            enriched_data_text = enrichment_response.choices[0].text.strip()
+            enriched_data = json.loads(enriched_data_text)
 
             recommendations.append(ModelRecommendation(
                 modelId=model.modelId,
-                name=model.modelId.split('/')[-1], # Simplified name
-                author=model.author,
+                name=model.modelId.split('/')[-1],
+                author=model.author or "Unknown",
                 description=getattr(model, 'description', 'No description available.'),
-                recommended=(i == 0), # Mark the top result as recommended
+                recommended=(i == 0),
                 **enriched_data
             ))
             

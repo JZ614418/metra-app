@@ -9,11 +9,11 @@ import Dashboard from '@/pages/Dashboard'
 import Login from '@/pages/Login'
 import Register from '@/pages/Register'
 import NotFound from '@/pages/NotFound'
+import ModelRecommend from '@/pages/ModelRecommend'
 
 // Components
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { Toaster } from '@/components/ui/toaster'
-import ModelRecommend from './components/ModelRecommend'
 
 function App() {
   const { token, setUser, setToken } = useAuthStore()
