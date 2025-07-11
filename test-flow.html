@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metra 语言模型训练平台 - 测试流程</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #111827;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #6b7280;
+            margin-bottom: 30px;
+        }
+        .status-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .status-card h3 {
+            margin: 0 0 10px 0;
+            color: #374151;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .status.pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .feature-list {
+            margin-top: 10px;
+            padding-left: 20px;
+        }
+        .feature-list li {
+            margin: 5px 0;
+            color: #4b5563;
+        }
+        .url-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 6px;
+            font-family: monospace;
+        }
+        .highlight {
+            background: #fef3c7;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Metra AI Factory - 语言模型训练平台</h1>
+        <p class="subtitle">专注于自然语言处理任务的AI模型定制平台</p>
+        
+        <div class="status-card">
+            <h3>📊 系统状态</h3>
+            <p>后端服务: <span class="status success">运行中</span> (端口 8000)</p>
+            <p>前端服务: <span class="status success">运行中</span> (端口 8080)</p>
+        </div>
+
+        <div class="status-card">
+            <h3>🎯 核心功能（语言模型专项）</h3>
+            <ul class="feature-list">
+                <li>✅ <strong>任务定义</strong> - 通过自然语言描述你的NLP需求</li>
+                <li>✅ <strong>模型推荐</strong> - 智能推荐最适合的开源语言模型
+                    <ul>
+                        <li>中文任务 → ChatGLM、Baichuan、Qwen等</li>
+                        <li>英文任务 → GPT-2、BERT、RoBERTa等</li>
+                    </ul>
+                </li>
+                <li>✅ <strong>数据构建</strong> - <span class="highlight">基于选定模型的智能数据推荐</span>
+                    <ul>
+                        <li>智能推荐数据源（根据模型语言自动切换）</li>
+                        <li>Web爬虫采集（支持淘宝、知乎、Twitter等）</li>
+                        <li>AI生成训练数据</li>
+                        <li>文件上传（CSV/JSON/TXT）</li>
+                    </ul>
+                </li>
+                <li>🚧 <strong>模型训练</strong> - LoRA微调、全量微调（开发中）</li>
+                <li>🚧 <strong>部署发布</strong> - API接口、插件导出（开发中）</li>
+            </ul>
+        </div>
+
+        <div class="status-card">
+            <h3>📝 支持的语言模型任务类型</h3>
+            <ul class="feature-list">
+                <li>📄 <strong>文本生成</strong> - 内容创作、对话系统、文案生成</li>
+                <li>🏷️ <strong>文本分类</strong> - 情感分析、垃圾邮件检测、主题分类</li>
+                <li>🔍 <strong>命名实体识别</strong> - 人名地名识别、关键信息提取</li>
+                <li>❓ <strong>问答系统</strong> - 智能客服、知识问答</li>
+                <li>📋 <strong>文本摘要</strong> - 新闻摘要、文档总结</li>
+                <li>🌐 <strong>机器翻译</strong> - 多语言翻译</li>
+            </ul>
+        </div>
+
+        <div class="status-card">
+            <h3>💡 典型使用场景</h3>
+            <ul class="feature-list">
+                <li><strong>中医健康顾问</strong> - 使用ChatGLM3-6B + 中医论坛数据</li>
+                <li><strong>客户投诉分类</strong> - 使用BERT + 淘宝评论数据</li>
+                <li><strong>产品评论分析</strong> - 使用RoBERTa + 电商评论数据</li>
+                <li><strong>智能客服系统</strong> - 使用Qwen-7B + 客服对话记录</li>
+                <li><strong>内容审核助手</strong> - 使用BERT + 社交媒体数据</li>
+            </ul>
+        </div>
+
+        <div class="url-info">
+            <strong>访问地址：</strong><br>
+            前端界面: <a href="http://localhost:8080" target="_blank">http://localhost:8080</a><br>
+            后端API文档: <a href="http://localhost:8000/docs" target="_blank">http://localhost:8000/docs</a><br>
+            <br>
+            <strong>测试账号：</strong><br>
+            邮箱: jzhe614@gmail.com<br>
+            密码: Jz061407
+        </div>
+    </div>
+</body>
+</html> 

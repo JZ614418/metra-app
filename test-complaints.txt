@@ -1,0 +1,10 @@
+The product quality is terrible, completely different from the description|Complaint
+Very satisfied with the purchase, fast delivery and great service|Not Complaint
+Customer service attitude is awful, waited 30 minutes for response|Complaint
+Thanks for the recommendation, the product works perfectly|Not Complaint
+Package was damaged during shipping, very disappointed|Complaint
+Excellent quality, will definitely buy again|Not Complaint
+This is a scam, the product never arrived|Complaint
+Great experience, highly recommend this seller|Not Complaint
+The item broke after just one day of use|Complaint
+Perfect fit and exactly as described|Not Complaint 

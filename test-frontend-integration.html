@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metra Frontend-Backend Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #b8daff;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Metra Frontend-Backend Integration Test</h1>
+        <p>这个页面测试前端与后端的集成功能。</p>
+        
+        <div class="test-result info">
+            <strong>测试环境：</strong><br>
+            前端：<span id="frontend-url">http://localhost:8087</span><br>
+            后端：<span id="backend-url">http://localhost:8000</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>1. 用户认证测试</h2>
+        
+        <div class="form-group">
+            <label for="test-email">邮箱：</label>
+            <input type="email" id="test-email" value="test@example.com" placeholder="输入邮箱">
+        </div>
+        
+        <div class="form-group">
+            <label for="test-password">密码：</label>
+            <input type="password" id="test-password" value="testpassword123" placeholder="输入密码">
+        </div>
+        
+        <button onclick="testLogin()">测试登录</button>
+        <button onclick="testRegister()">测试注册</button>
+        <button onclick="testGetMe()">测试获取用户信息</button>
+        
+        <div id="auth-results"></div>
+    </div>
+
+    <div class="container">
+        <h2>2. 模型推荐测试</h2>
+        <button onclick="testRecommendations()">测试模型推荐</button>
+        <div id="recommendation-results"></div>
+    </div>
+
+    <div class="container">
+        <h2>3. 数据构建测试</h2>
+        <button onclick="testDataBuilder()">测试数据构建推荐</button>
+        <button onclick="testDataCollection()">测试数据收集</button>
+        <div id="data-builder-results"></div>
+    </div>
+
+    <div class="container">
+        <h2>4. 部署测试</h2>
+        <button onclick="testDeployment()">测试部署功能</button>
+        <div id="deployment-results"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000/api/v1';
+        let currentToken = null;
+
+        function showResult(containerId, message, type = 'info') {
+            const container = document.getElementById(containerId);
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            resultDiv.innerHTML = message;
+            container.appendChild(resultDiv);
+        }
+
+        function clearResults(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        async function testLogin() {
+            clearResults('auth-results');
+            const email = document.getElementById('test-email').value;
+            const password = document.getElementById('test-password').value;
+            
+            try {
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password }),
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    currentToken = data.access_token;
+                    showResult('auth-results', `✅ 登录成功！Token: ${data.access_token.substring(0, 20)}...`, 'success');
+                } else {
+                    showResult('auth-results', `❌ 登录失败：${data.detail}`, 'error');
+                }
+            } catch (error) {
+                showResult('auth-results', `❌ 登录错误：${error.message}`, 'error');
+            }
+        }
+
+        async function testRegister() {
+            clearResults('auth-results');
+            const email = `test${Date.now()}@example.com`;
+            const password = 'testpassword123';
+            
+            try {
+                const response = await fetch(`${API_URL}/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password }),
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('auth-results', `✅ 注册成功！用户ID: ${data.id}`, 'success');
+                } else {
+                    showResult('auth-results', `❌ 注册失败：${data.detail}`, 'error');
+                }
+            } catch (error) {
+                showResult('auth-results', `❌ 注册错误：${error.message}`, 'error');
+            }
+        }
+
+        async function testGetMe() {
+            clearResults('auth-results');
+            
+            if (!currentToken) {
+                showResult('auth-results', '❌ 请先登录获取token', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/auth/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                    },
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('auth-results', `✅ 获取用户信息成功！<pre>${JSON.stringify(data, null, 2)}</pre>`, 'success');
+                } else {
+                    showResult('auth-results', `❌ 获取用户信息失败：${data.detail}`, 'error');
+                }
+            } catch (error) {
+                showResult('auth-results', `❌ 获取用户信息错误：${error.message}`, 'error');
+            }
+        }
+
+        async function testRecommendations() {
+            clearResults('recommendation-results');
+            
+            const taskDefinition = {
+                "task": "中医饮食建议AI",
+                "language": "chinese",
+                "data_volume": "10000",
+                "target_audience": "普通人",
+                "input_format": {
+                    "symptoms": "用户症状描述",
+                    "age": "年龄",
+                    "gender": "性别"
+                },
+                "output_format": {
+                    "recommendations": "饮食建议",
+                    "tips": "注意事项"
+                }
+            };
+            
+            try {
+                const response = await fetch(`${API_URL}/recommendations/recommend`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': currentToken ? `Bearer ${currentToken}` : undefined,
+                    },
+                    body: JSON.stringify({ task_definition: taskDefinition }),
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('recommendation-results', `✅ 模型推荐成功！推荐了 ${data.recommendations.length} 个模型`, 'success');
+                } else {
+                    showResult('recommendation-results', `❌ 模型推荐失败：${data.detail}`, 'error');
+                }
+            } catch (error) {
+                showResult('recommendation-results', `❌ 模型推荐错误：${error.message}`, 'error');
+            }
+        }
+
+        async function testDataBuilder() {
+            clearResults('data-builder-results');
+            
+            const requestData = {
+                "task_info": {
+                    "task": "中医饮食建议",
+                    "type": "classification",
+                    "language": "chinese",
+                    "labels": ["健康", "调理", "禁忌"],
+                    "description": "基于用户症状提供中医饮食建议"
+                },
+                "selected_model": {
+                    "name": "ChatGLM3-6B",
+                    "modelType": "text-generation",
+                    "size": "6b"
+                }
+            };
+            
+            try {
+                const response = await fetch(`${API_URL}/data-builder/recommend`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': currentToken ? `Bearer ${currentToken}` : undefined,
+                    },
+                    body: JSON.stringify(requestData),
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('data-builder-results', `✅ 数据构建推荐成功！<pre>${JSON.stringify(data, null, 2)}</pre>`, 'success');
+                } else {
+                    showResult('data-builder-results', `❌ 数据构建推荐失败：${data.detail}`, 'error');
+                }
+            } catch (error) {
+                showResult('data-builder-results', `❌ 数据构建推荐错误：${error.message}`, 'error');
+            }
+        }
+
+        async function testDataCollection() {
+            clearResults('data-builder-results');
+            
+            const requestData = {
+                "task_info": {
+                    "task": "中医饮食建议",
+                    "type": "classification",
+                    "language": "chinese",
+                    "labels": ["健康", "调理", "禁忌"],
+                    "description": "基于用户症状提供中医饮食建议"
+                },
+                "selected_model": {
+                    "name": "ChatGLM3-6B",
+                    "modelType": "text-generation",
+                    "size": "6b"
+                },
+                "data_count": 100,
+                "quality_mode": "balanced"
+            };
+            
+            try {
+                const response = await fetch(`${API_URL}/data-builder/collect`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': currentToken ? `Bearer ${currentToken}` : undefined,
+                    },
+                    body: JSON.stringify(requestData),
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('data-builder-results', `✅ 数据收集启动成功！Job ID: ${data.job_id}`, 'success');
+                } else {
+                    showResult('data-builder-results', `❌ 数据收集启动失败：${data.detail}`, 'error');
+                }
+            } catch (error) {
+                showResult('data-builder-results', `❌ 数据收集启动错误：${error.message}`, 'error');
+            }
+        }
+
+        async function testDeployment() {
+            clearResults('deployment-results');
+            
+            try {
+                // 先获取训练好的模型
+                const modelsResponse = await fetch(`${API_URL}/deployment/models/trained`, {
+                    headers: {
+                        'Authorization': currentToken ? `Bearer ${currentToken}` : undefined,
+                    },
+                });
+
+                const models = await modelsResponse.json();
+                
+                if (modelsResponse.ok) {
+                    showResult('deployment-results', `✅ 获取训练模型成功！找到 ${models.length} 个模型`, 'success');
+                    
+                    // 部署第一个模型
+                    if (models.length > 0) {
+                        const deployResponse = await fetch(`${API_URL}/deployment/deploy`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': currentToken ? `Bearer ${currentToken}` : undefined,
+                            },
+                            body: JSON.stringify({
+                                model_id: models[0].id,
+                                type: 'api',
+                                config: { auto_scale: true }
+                            }),
+                        });
+
+                        const deployData = await deployResponse.json();
+                        
+                        if (deployResponse.ok) {
+                            showResult('deployment-results', `✅ 模型部署成功！部署ID: ${deployData.id}`, 'success');
+                        } else {
+                            showResult('deployment-results', `❌ 模型部署失败：${deployData.detail}`, 'error');
+                        }
+                    }
+                } else {
+                    showResult('deployment-results', `❌ 获取训练模型失败：${models.detail}`, 'error');
+                }
+            } catch (error) {
+                showResult('deployment-results', `❌ 部署测试错误：${error.message}`, 'error');
+            }
+        }
+
+        // 页面加载时的初始化
+        window.onload = function() {
+            showResult('auth-results', '请先点击"测试登录"按钮获取认证token', 'info');
+        };
+    </script>
+</body>
+</html>

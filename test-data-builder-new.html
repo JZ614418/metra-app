@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test New Data Builder</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 900px; margin: 0 auto; }
+        .section { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h2 { color: #333; margin-top: 0; }
+        button { background: #7c3aed; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin-right: 10px; }
+        button:hover { background: #6d28d9; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        input, textarea { width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px; }
+        .result { background: #f8f9fa; padding: 15px; border-radius: 4px; margin-top: 10px; }
+        .error { color: #dc2626; }
+        .success { color: #16a34a; }
+        .progress { background: #e5e7eb; border-radius: 4px; overflow: hidden; height: 20px; margin-top: 10px; }
+        .progress-bar { background: #7c3aed; height: 100%; transition: width 0.3s; }
+        .recommendation { background: #fef3c7; padding: 15px; border-radius: 4px; border: 1px solid #fcd34d; }
+        .status { font-size: 14px; color: #666; margin-top: 10px; }
+        .data-grid { display: grid; gap: 10px; margin-top: 10px; }
+        .data-item { background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #e5e7eb; }
+        .label { display: inline-block; background: #e5e7eb; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-right: 5px; }
+        .ai-chat { background: #f3f4f6; padding: 15px; border-radius: 4px; margin-top: 10px; }
+        .chat-message { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .user-message { background: #7c3aed; color: white; text-align: right; }
+        .ai-message { background: white; border: 1px solid #e5e7eb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test New Data Builder API</h1>
+        
+        <!-- Step 1: Login -->
+        <div class="section">
+            <h2>Step 1: Login</h2>
+            <input type="email" id="email" placeholder="Email" value="test@example.com">
+            <input type="password" id="password" placeholder="Password" value="password123">
+            <button onclick="login()">Login</button>
+            <div id="loginResult" class="result"></div>
+        </div>
+        
+        <!-- Step 2: Get AI Recommendation -->
+        <div class="section">
+            <h2>Step 2: Get AI Recommendation</h2>
+            <p>Task: Customer Complaint Classification (Chinese)</p>
+            <p>Model: BERT-base-chinese</p>
+            <button onclick="getRecommendation()">Get AI Recommendation</button>
+            <div id="recommendationResult" class="result"></div>
+        </div>
+        
+        <!-- Step 3: Start Collection -->
+        <div class="section">
+            <h2>Step 3: Start Data Collection</h2>
+            <label>Data Count:</label>
+            <input type="number" id="dataCount" value="1000" min="100" max="100000">
+            <label>Quality Mode:</label>
+            <select id="qualityMode">
+                <option value="speed">Speed Priority</option>
+                <option value="balanced" selected>Balanced</option>
+                <option value="quality">Quality Priority</option>
+            </select>
+            <button onclick="startCollection()">Start Collection</button>
+            <div id="collectionStatus" class="status"></div>
+            <div class="progress">
+                <div id="progressBar" class="progress-bar" style="width: 0%"></div>
+            </div>
+            <div id="collectionResult" class="result"></div>
+        </div>
+        
+        <!-- Step 4: View & Analyze Data -->
+        <div class="section">
+            <h2>Step 4: View & Analyze Data</h2>
+            <button onclick="viewData()" id="viewDataBtn" disabled>View Collected Data</button>
+            <div id="dataResult" class="result"></div>
+            
+            <div class="ai-chat" id="aiChat" style="display: none;">
+                <h3>AI Data Assistant</h3>
+                <div id="chatMessages"></div>
+                <input type="text" id="chatInput" placeholder="Ask about your data...">
+                <button onclick="sendChat()">Send</button>
+            </div>
+        </div>
+        
+        <!-- Step 5: Modify Dataset -->
+        <div class="section">
+            <h2>Step 5: Modify Dataset</h2>
+            <button onclick="balanceData()" disabled id="balanceBtn">Balance Labels</button>
+            <button onclick="filterData()" disabled id="filterBtn">Filter Low Quality</button>
+            <button onclick="augmentData()" disabled id="augmentBtn">Generate More Data</button>
+            <div id="modifyResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        let token = '';
+        let jobId = '';
+        let pollingInterval = null;
+        
+        const API_URL = 'http://localhost:8000/api/v1';
+        
+        // Test task and model info
+        const taskInfo = {
+            task: 'Customer Complaint Classification',
+            type: 'classification',
+            language: 'chinese',
+            labels: ['投诉', '非投诉'],
+            description: '识别客户反馈是否为投诉'
+        };
+        
+        const selectedModel = {
+            id: 'bert-base-chinese',
+            name: 'BERT-base-chinese',
+            provider: 'Google',
+            modelType: 'Text Classification',
+            size: 'base'
+        };
+        
+        async function login() {
+            try {
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: document.getElementById('email').value,
+                        password: document.getElementById('password').value
+                    })
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    token = data.access_token;
+                    document.getElementById('loginResult').innerHTML = '<span class="success">✓ Logged in successfully</span>';
+                } else {
+                    throw new Error(data.detail || 'Login failed');
+                }
+            } catch (error) {
+                document.getElementById('loginResult').innerHTML = `<span class="error">✗ ${error.message}</span>`;
+            }
+        }
+        
+        async function getRecommendation() {
+            try {
+                const response = await fetch(`${API_URL}/data-builder/recommend`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        task_info: taskInfo,
+                        selected_model: selectedModel
+                    })
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    document.getElementById('recommendationResult').innerHTML = `
+                        <div class="recommendation">
+                            <h3>AI Recommendation</h3>
+                            <p><strong>Reasoning:</strong> ${data.reasoning}</p>
+                            <p><strong>Recommended Count:</strong> ${data.recommended_count.toLocaleString()} samples</p>
+                            <p><strong>Time Estimate:</strong> ${data.estimated_time_minutes} minutes</p>
+                            <p><strong>Quality Mode:</strong> ${data.quality_mode}</p>
+                            <p><strong>Collection Strategy:</strong> ${Math.round(data.collection_strategy.web * 100)}% Web, ${Math.round(data.collection_strategy.ai * 100)}% AI</p>
+                            <p><strong>Expected Performance:</strong> ${data.expected_performance}</p>
+                            <p><strong>Data Sources:</strong> ${data.data_sources.join(', ')}</p>
+                        </div>
+                    `;
+                    
+                    // Apply recommendation
+                    document.getElementById('dataCount').value = data.recommended_count;
+                    document.getElementById('qualityMode').value = data.quality_mode;
+                } else {
+                    throw new Error(data.detail || 'Failed to get recommendation');
+                }
+            } catch (error) {
+                document.getElementById('recommendationResult').innerHTML = `<span class="error">✗ ${error.message}</span>`;
+            }
+        }
+        
+        async function startCollection() {
+            try {
+                const response = await fetch(`${API_URL}/data-builder/collect`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        task_info: taskInfo,
+                        selected_model: selectedModel,
+                        data_count: parseInt(document.getElementById('dataCount').value),
+                        quality_mode: document.getElementById('qualityMode').value,
+                        use_recommendation: true
+                    })
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    jobId = data.job_id;
+                    document.getElementById('collectionStatus').innerHTML = '<span class="success">✓ Collection started!</span>';
+                    
+                    // Start polling for progress
+                    pollProgress();
+                } else {
+                    throw new Error(data.detail || 'Failed to start collection');
+                }
+            } catch (error) {
+                document.getElementById('collectionResult').innerHTML = `<span class="error">✗ ${error.message}</span>`;
+            }
+        }
+        
+        function pollProgress() {
+            pollingInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`${API_URL}/data-builder/job/${jobId}/progress`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    
+                    const data = await response.json();
+                    if (response.ok) {
+                        // Update progress bar
+                        document.getElementById('progressBar').style.width = `${data.progress}%`;
+                        document.getElementById('collectionStatus').innerHTML = `
+                            Status: ${data.status} | Progress: ${data.progress}% | 
+                            Collected: ${data.collected_count}/${data.total_count}
+                        `;
+                        
+                        if (data.status === 'completed') {
+                            clearInterval(pollingInterval);
+                            document.getElementById('collectionResult').innerHTML = '<span class="success">✓ Collection completed!</span>';
+                            document.getElementById('viewDataBtn').disabled = false;
+                            document.getElementById('balanceBtn').disabled = false;
+                            document.getElementById('filterBtn').disabled = false;
+                            document.getElementById('augmentBtn').disabled = false;
+                        } else if (data.status === 'failed') {
+                            clearInterval(pollingInterval);
+                            document.getElementById('collectionResult').innerHTML = `<span class="error">✗ Collection failed: ${data.errors.join(', ')}</span>`;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Progress poll error:', error);
+                }
+            }, 2000);
+        }
+        
+        async function viewData() {
+            try {
+                const response = await fetch(`${API_URL}/data-builder/job/${jobId}/data?limit=10`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    let html = '<h3>Data Preview (First 10 samples)</h3>';
+                    html += '<div class="data-grid">';
+                    
+                    data.data.forEach((item, idx) => {
+                        html += `
+                            <div class="data-item">
+                                <strong>#${idx + 1}</strong>
+                                <span class="label">${item.label}</span>
+                                <span class="label">${item.source}</span>
+                                <span class="label">${Math.round((item.confidence || 0) * 100)}%</span>
+                                <p>${item.content}</p>
+                            </div>
+                        `;
+                    });
+                    
+                    html += '</div>';
+                    html += '<h4>Statistics</h4>';
+                    html += '<p>Label Distribution: ' + JSON.stringify(data.statistics.label_distribution) + '</p>';
+                    html += '<p>Source Distribution: ' + JSON.stringify(data.statistics.source_distribution) + '</p>';
+                    html += '<p>Average Confidence: ' + (data.statistics.average_confidence * 100).toFixed(1) + '%</p>';
+                    
+                    document.getElementById('dataResult').innerHTML = html;
+                    document.getElementById('aiChat').style.display = 'block';
+                } else {
+                    throw new Error(data.detail || 'Failed to get data');
+                }
+            } catch (error) {
+                document.getElementById('dataResult').innerHTML = `<span class="error">✗ ${error.message}</span>`;
+            }
+        }
+        
+        async function sendChat() {
+            const input = document.getElementById('chatInput');
+            const query = input.value.trim();
+            if (!query) return;
+            
+            // Add user message
+            const messagesDiv = document.getElementById('chatMessages');
+            messagesDiv.innerHTML += `<div class="chat-message user-message">${query}</div>`;
+            input.value = '';
+            
+            try {
+                const response = await fetch(`${API_URL}/data-builder/job/${jobId}/analyze`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ query })
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    messagesDiv.innerHTML += `<div class="chat-message ai-message">${data.analysis}</div>`;
+                    
+                    if (data.suggested_actions && data.suggested_actions.length > 0) {
+                        let actionsHtml = '<div class="chat-message ai-message"><strong>Suggested Actions:</strong><ul>';
+                        data.suggested_actions.forEach(action => {
+                            actionsHtml += `<li>${action.description}</li>`;
+                        });
+                        actionsHtml += '</ul></div>';
+                        messagesDiv.innerHTML += actionsHtml;
+                    }
+                } else {
+                    throw new Error(data.detail || 'Failed to analyze');
+                }
+            } catch (error) {
+                messagesDiv.innerHTML += `<div class="chat-message ai-message error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function balanceData() {
+            modifyDataset('balance', { target_distribution: 'equal' });
+        }
+        
+        async function filterData() {
+            modifyDataset('filter', { min_confidence: 0.8 });
+        }
+        
+        async function augmentData() {
+            modifyDataset('augment', { label: '投诉', count: 500 });
+        }
+        
+        async function modifyDataset(action, parameters) {
+            try {
+                const response = await fetch(`${API_URL}/data-builder/job/${jobId}/modify`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ action, parameters })
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    document.getElementById('modifyResult').innerHTML = `
+                        <span class="success">✓ ${data.result}</span>
+                    `;
+                    
+                    // Refresh data view
+                    setTimeout(viewData, 1000);
+                } else {
+                    throw new Error(data.detail || 'Failed to modify dataset');
+                }
+            } catch (error) {
+                document.getElementById('modifyResult').innerHTML = `<span class="error">✗ ${error.message}</span>`;
+            }
+        }
+    </script>
+</body>
+</html> 

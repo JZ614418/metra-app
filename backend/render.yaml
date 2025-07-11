@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: metra-api
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        value: sqlite:///./metra.db
+      - key: PROJECT_NAME
+        value: Metra AI Factory API
+      - key: API_V1_STR
+        value: /api/v1
+      - key: BACKEND_CORS_ORIGINS
+        value: '["http://localhost:5173","http://localhost:3000","http://localhost:8080","https://*.onrender.com"]'
+      - key: OPENAI_API_KEY
+        sync: false  # 需要手动在 Render 控制台设置 

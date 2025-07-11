@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metra Frontend-Backend Connection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .test-result { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button { padding: 10px 20px; margin: 10px 0; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .json { background: #f8f9fa; padding: 10px; border-radius: 5px; font-family: monospace; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Metra Platform Connection Test</h1>
+        
+        <div class="test-result info">
+            <h3>测试说明</h3>
+            <p>这个页面用于测试Metra前端和后端的连接状态</p>
+            <p><strong>前端地址:</strong> http://localhost:8080</p>
+            <p><strong>后端地址:</strong> http://localhost:8000</p>
+        </div>
+
+        <button onclick="testBackendConnection()">🔗 测试后端连接</button>
+        <button onclick="testRegisterAPI()">👤 测试注册API</button>
+        <button onclick="testDataBuilderAPI()">📊 测试数据构建API</button>
+        <button onclick="testE2EAPI()">🎯 测试端到端训练API</button>
+        <button onclick="testFrontendAPI()">🌐 测试前端API调用</button>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        function logResult(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong> - ${message}`;
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+
+        async function testBackendConnection() {
+            logResult('🔄 测试后端连接...', 'info');
+            
+            try {
+                // Test basic connection
+                const response = await fetch('http://localhost:8000/docs');
+                if (response.ok) {
+                    logResult('✅ 后端服务运行正常 - Swagger文档可访问', 'success');
+                    
+                    // Test API v1 endpoint
+                    const apiResponse = await fetch('http://localhost:8000/api/v1/auth/register', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            email: 'test@example.com',
+                            password: 'testpassword',
+                            username: 'testuser'
+                        })
+                    });
+                    
+                    logResult(`API响应状态: ${apiResponse.status}`, apiResponse.ok ? 'success' : 'info');
+                } else {
+                    logResult('❌ 后端服务连接失败', 'error');
+                }
+            } catch (error) {
+                logResult(`❌ 连接错误: ${error.message}`, 'error');
+            }
+        }
+
+        async function testRegisterAPI() {
+            logResult('🔄 测试用户注册API...', 'info');
+            
+            try {
+                const testUser = {
+                    email: `test_${Date.now()}@example.com`,
+                    password: 'testpassword123',
+                    username: `test_${Date.now()}`,
+                    full_name: 'Test User'
+                };
+
+                const response = await fetch('http://localhost:8000/api/v1/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(testUser)
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    logResult('✅ 注册API工作正常', 'success');
+                    logResult(`<div class="json">${JSON.stringify(data, null, 2)}</div>`, 'success');
+                } else {
+                    logResult(`⚠️ 注册API响应: ${response.status}`, 'info');
+                    logResult(`<div class="json">${JSON.stringify(data, null, 2)}</div>`, 'info');
+                }
+            } catch (error) {
+                logResult(`❌ 注册API错误: ${error.message}`, 'error');
+            }
+        }
+
+        async function testDataBuilderAPI() {
+            logResult('🔄 测试数据构建API...', 'info');
+            
+            try {
+                const testData = {
+                    task_info: {
+                        type: 'text-generation',
+                        language: 'chinese',
+                        task: '中医诊断',
+                        description: '测试中医诊断AI'
+                    },
+                    selected_model: {
+                        model_id: 'THUDM/chatglm3-6b',
+                        model_name: 'ChatGLM3-6B'
+                    }
+                };
+
+                const response = await fetch('http://localhost:8000/api/v1/data-builder/recommend', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(testData)
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    logResult('✅ 数据构建API工作正常', 'success');
+                    logResult(`<div class="json">${JSON.stringify(data, null, 2)}</div>`, 'success');
+                } else {
+                    logResult(`⚠️ 数据构建API响应: ${response.status}`, 'info');
+                    logResult(`<div class="json">${JSON.stringify(data, null, 2)}</div>`, 'info');
+                }
+            } catch (error) {
+                logResult(`❌ 数据构建API错误: ${error.message}`, 'error');
+            }
+        }
+
+        async function testE2EAPI() {
+            logResult('🔄 测试端到端训练API...', 'info');
+            
+            try {
+                const testData = {
+                    task_name: '中医AI诊断系统',
+                    task_description: '用于中医诊断和治疗方案推荐的AI系统',
+                    task_info: {
+                        type: 'text-generation',
+                        language: 'chinese',
+                        task: '中医诊断治疗',
+                        domain: 'health'
+                    },
+                    selected_model: {
+                        model_id: 'THUDM/chatglm3-6b',
+                        model_name: 'ChatGLM3-6B'
+                    },
+                    data_count: 1000
+                };
+
+                const response = await fetch('http://localhost:8000/api/v1/training-e2e/start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(testData)
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    logResult('✅ 端到端训练API工作正常', 'success');
+                    logResult(`<div class="json">${JSON.stringify(data, null, 2)}</div>`, 'success');
+                    
+                    // Test progress endpoint
+                    const jobId = data.job_id;
+                    if (jobId) {
+                        setTimeout(async () => {
+                            try {
+                                const progressResponse = await fetch(`http://localhost:8000/api/v1/training-e2e/job/${jobId}/progress`);
+                                const progressData = await progressResponse.json();
+                                logResult('✅ 进度查询API工作正常', 'success');
+                                logResult(`<div class="json">${JSON.stringify(progressData, null, 2)}</div>`, 'success');
+                            } catch (error) {
+                                logResult(`❌ 进度查询错误: ${error.message}`, 'error');
+                            }
+                        }, 2000);
+                    }
+                } else {
+                    logResult(`⚠️ 端到端训练API响应: ${response.status}`, 'info');
+                    logResult(`<div class="json">${JSON.stringify(data, null, 2)}</div>`, 'info');
+                }
+            } catch (error) {
+                logResult(`❌ 端到端训练API错误: ${error.message}`, 'error');
+            }
+        }
+
+        async function testFrontendAPI() {
+            logResult('🔄 测试前端API调用...', 'info');
+            
+            // Check if we can reach the frontend API configuration
+            try {
+                const frontendResponse = await fetch('http://localhost:8080');
+                if (frontendResponse.ok) {
+                    logResult('✅ 前端服务可访问', 'success');
+                    
+                    // Test if the API URL is correctly configured
+                    logResult('ℹ️ 前端API配置已更新为: http://localhost:8000/api/v1', 'info');
+                    logResult('💡 现在前端应该能够正确连接到本地后端了', 'success');
+                } else {
+                    logResult('❌ 前端服务连接失败', 'error');
+                }
+            } catch (error) {
+                logResult(`❌ 前端连接错误: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-run basic connection test
+        window.onload = () => {
+            logResult('🎉 Metra平台连接测试工具启动', 'info');
+            logResult('📋 请点击上方按钮测试各个功能模块', 'info');
+        };
+    </script>
+</body>
+</html>

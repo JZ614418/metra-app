@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Builder Frontend Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .progress {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background: #007bff;
+            transition: width 0.3s ease;
+        }
+        .data-preview {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        .data-item {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .data-item:last-child {
+            border-bottom: none;
+        }
+        .label {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 0.875em;
+            margin-left: 10px;
+        }
+        .label-positive {
+            background: #28a745;
+            color: white;
+        }
+        .label-negative {
+            background: #dc3545;
+            color: white;
+        }
+        .label-neutral {
+            background: #6c757d;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 Data Builder Frontend Test</h1>
+    
+    <div class="container">
+        <h2>📊 Test Status</h2>
+        <div id="status" class="status info">
+            Ready to test Data Builder functionality
+        </div>
+        <div>
+            <strong>Frontend URL:</strong> http://localhost:8082<br>
+            <strong>Backend URL:</strong> http://localhost:8000<br>
+            <strong>User:</strong> jzhe614@gmail.com
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🔍 Web Scraping Test</h2>
+        <button id="testWebScraping" onclick="testWebScraping()">Test Web Scraping</button>
+        <div id="scrapingProgress" style="display: none;">
+            <div class="progress">
+                <div id="scrapingProgressBar" class="progress-bar" style="width: 0%"></div>
+            </div>
+            <div id="scrapingStatus"></div>
+        </div>
+        <div id="scrapingResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>🤖 AI Generation Test</h2>
+        <button id="testAiGeneration" onclick="testAiGeneration()">Test AI Generation</button>
+        <div id="generationProgress" style="display: none;">
+            <div class="progress">
+                <div id="generationProgressBar" class="progress-bar" style="width: 0%"></div>
+            </div>
+            <div id="generationStatus"></div>
+        </div>
+        <div id="generationResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>📁 File Upload Test</h2>
+        <button id="testFileUpload" onclick="testFileUpload()">Test File Upload</button>
+        <div id="uploadResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>📚 Available Sources</h2>
+        <button id="testSources" onclick="testSources()">Get Available Sources</button>
+        <div id="sourcesResult"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000/api/v1';
+        let token = null;
+
+        // Login first
+        async function login() {
+            try {
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'jzhe614@gmail.com',
+                        password: 'Jz061407'
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    token = data.access_token;
+                    updateStatus('✅ Login successful!', 'success');
+                    return true;
+                } else {
+                    const error = await response.json();
+                    updateStatus(`❌ Login failed: ${error.detail}`, 'error');
+                    return false;
+                }
+            } catch (error) {
+                updateStatus(`❌ Login error: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        function updateStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        async function testWebScraping() {
+            if (!token) {
+                await login();
+            }
+
+            const button = document.getElementById('testWebScraping');
+            button.disabled = true;
+            document.getElementById('scrapingProgress').style.display = 'block';
+
+            try {
+                // Start scraping
+                const response = await fetch(`${API_URL}/data-collection/web-scraping`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        query: 'customer complaints e-commerce reviews',
+                        max_results: 20,
+                        include_full_content: false,
+                        sources: ['google', 'wikipedia']
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to start web scraping');
+                }
+
+                const data = await response.json();
+                const jobId = data.job_id;
+                
+                // Poll for progress
+                const pollInterval = setInterval(async () => {
+                    try {
+                        const progressResponse = await fetch(`${API_URL}/data-collection/job/${jobId}`, {
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        });
+
+                        if (progressResponse.ok) {
+                            const progress = await progressResponse.json();
+                            
+                            // Update progress bar
+                            document.getElementById('scrapingProgressBar').style.width = `${progress.progress}%`;
+                            document.getElementById('scrapingStatus').textContent = 
+                                `Status: ${progress.status} - Progress: ${progress.progress}% - Total: ${progress.total_count} items`;
+
+                            if (progress.status === 'completed') {
+                                clearInterval(pollInterval);
+                                button.disabled = false;
+                                
+                                // Show preview
+                                if (progress.data && progress.data.length > 0) {
+                                    showDataPreview('scrapingResult', progress.data.slice(0, 5));
+                                }
+                                
+                                updateStatus(`✅ Web scraping completed! Collected ${progress.total_count} data points.`, 'success');
+                            } else if (progress.status === 'failed') {
+                                clearInterval(pollInterval);
+                                button.disabled = false;
+                                updateStatus(`❌ Web scraping failed: ${progress.message}`, 'error');
+                            }
+                        }
+                    } catch (error) {
+                        clearInterval(pollInterval);
+                        button.disabled = false;
+                        console.error('Poll error:', error);
+                    }
+                }, 1000);
+
+            } catch (error) {
+                button.disabled = false;
+                updateStatus(`❌ Web scraping error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testAiGeneration() {
+            if (!token) {
+                await login();
+            }
+
+            const button = document.getElementById('testAiGeneration');
+            button.disabled = true;
+            document.getElementById('generationProgress').style.display = 'block';
+
+            try {
+                // Start generation
+                const response = await fetch(`${API_URL}/data-collection/ai-generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        task_type: 'sentiment_analysis',
+                        task_description: 'Generate customer reviews with sentiment labels',
+                        count: 30,
+                        labels: ['positive', 'negative', 'neutral'],
+                        style: 'balanced'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to start AI generation');
+                }
+
+                const data = await response.json();
+                const jobId = data.job_id;
+                
+                // Poll for progress
+                const pollInterval = setInterval(async () => {
+                    try {
+                        const progressResponse = await fetch(`${API_URL}/data-collection/job/${jobId}`, {
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        });
+
+                        if (progressResponse.ok) {
+                            const progress = await progressResponse.json();
+                            
+                            // Update progress bar
+                            document.getElementById('generationProgressBar').style.width = `${progress.progress}%`;
+                            document.getElementById('generationStatus').textContent = 
+                                `Status: ${progress.status} - Progress: ${progress.progress}% - Total: ${progress.total_count} items`;
+
+                            if (progress.status === 'completed') {
+                                clearInterval(pollInterval);
+                                button.disabled = false;
+                                
+                                // Show preview
+                                if (progress.data && progress.data.length > 0) {
+                                    showDataPreview('generationResult', progress.data.slice(0, 6));
+                                }
+                                
+                                updateStatus(`✅ AI generation completed! Generated ${progress.total_count} samples.`, 'success');
+                            } else if (progress.status === 'failed') {
+                                clearInterval(pollInterval);
+                                button.disabled = false;
+                                updateStatus(`❌ AI generation failed: ${progress.message}`, 'error');
+                            }
+                        }
+                    } catch (error) {
+                        clearInterval(pollInterval);
+                        button.disabled = false;
+                        console.error('Poll error:', error);
+                    }
+                }, 1000);
+
+            } catch (error) {
+                button.disabled = false;
+                updateStatus(`❌ AI generation error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testFileUpload() {
+            if (!token) {
+                await login();
+            }
+
+            try {
+                // Create a test CSV file
+                const csvContent = `content,label
+"This product is amazing! Best purchase ever.",positive
+"Terrible quality, complete waste of money.",negative
+"It's okay, nothing special but does the job.",neutral
+"Excellent customer service and fast shipping!",positive
+"Product broke after one day of use.",negative`;
+
+                const blob = new Blob([csvContent], { type: 'text/csv' });
+                const file = new File([blob], 'test_data.csv', { type: 'text/csv' });
+
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('task_type', 'sentiment_analysis');
+                formData.append('has_labels', 'true');
+                formData.append('label_column', 'label');
+                formData.append('content_column', 'content');
+
+                const response = await fetch(`${API_URL}/data-collection/file-upload`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    updateStatus(`✅ File upload successful! Uploaded ${data.total_count} data points.`, 'success');
+                    
+                    if (data.preview) {
+                        showDataPreview('uploadResult', data.preview);
+                    }
+                } else {
+                    const error = await response.json();
+                    updateStatus(`❌ File upload failed: ${error.detail}`, 'error');
+                }
+
+            } catch (error) {
+                updateStatus(`❌ File upload error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testSources() {
+            if (!token) {
+                await login();
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/data-collection/sources`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const sourcesHtml = data.sources.map(source => `
+                        <div class="data-item">
+                            <strong>${source.name}</strong> (${source.id})<br>
+                            ${source.description}<br>
+                            <small>Free quota: ${source.free_quota} | Requires key: ${source.requires_key ? 'Yes' : 'No'}</small>
+                        </div>
+                    `).join('');
+                    
+                    document.getElementById('sourcesResult').innerHTML = `
+                        <div class="data-preview">
+                            ${sourcesHtml}
+                        </div>
+                    `;
+                    
+                    updateStatus('✅ Successfully retrieved available sources', 'success');
+                } else {
+                    updateStatus('❌ Failed to get sources', 'error');
+                }
+
+            } catch (error) {
+                updateStatus(`❌ Sources error: ${error.message}`, 'error');
+            }
+        }
+
+        function showDataPreview(elementId, data) {
+            const previewHtml = data.map(item => {
+                const labelClass = item.label ? 
+                    `label-${item.label.toLowerCase().replace(' ', '-')}` : '';
+                const labelHtml = item.label ? 
+                    `<span class="label ${labelClass}">${item.label}</span>` : '';
+                
+                return `
+                    <div class="data-item">
+                        ${item.content || item.snippet || item.title}
+                        ${labelHtml}
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById(elementId).innerHTML = `
+                <h3>Data Preview (first ${data.length} items):</h3>
+                <div class="data-preview">
+                    ${previewHtml}
+                </div>
+            `;
+        }
+
+        // Auto-login on page load
+        window.onload = async () => {
+            await login();
+        };
+    </script>
+</body>
+</html> 

@@ -1,0 +1,25 @@
+{
+  "e7b9c7fc-03e8-4b04-8397-fbd6aeff1ee3": {
+    "id": "e7b9c7fc-03e8-4b04-8397-fbd6aeff1ee3",
+    "user_id": "935dd354-415c-49b0-ac12-ea42c0843cce",
+    "model_id": "model-1",
+    "type": "api",
+    "status": "active",
+    "api_key": "sk-metra-wax0eBDhaXmmsbunZ-tuyVmw6Sg9UYzNSdPXz7h_lwU",
+    "created_at": "2025-07-09T03:33:15.717443",
+    "config": {
+      "auto_scale": true,
+      "max_instances": 3
+    },
+    "metrics": {
+      "api_calls": 1,
+      "total_requests": 1,
+      "errors": 0,
+      "avg_response_time": 70.0,
+      "uptime": 100.0,
+      "last_used": "Never",
+      "health": 100
+    },
+    "endpoint": "https://api.metra.ai/v1/models/e7b9c7fc-03e8-4b04-8397-fbd6aeff1ee3/predict"
+  }
+}

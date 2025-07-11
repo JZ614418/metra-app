@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fixed Sidebar Layout Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+            background-color: #f9fafb;
+            overflow: hidden; /* Prevent body scroll */
+        }
+
+        .sidebar {
+            width: 288px; /* 72 * 4 = 288px (w-72 in Tailwind) */
+            background-color: white;
+            border-right: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: sticky;
+            top: 0;
+        }
+
+        .sidebar-content {
+            padding: 24px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .scrollable-area {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
+        }
+
+        .content-box {
+            max-width: 1152px; /* max-w-6xl */
+            margin: 0 auto;
+        }
+
+        .demo-content {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar-item {
+            padding: 12px 16px;
+            margin-bottom: 4px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .sidebar-item:hover {
+            background-color: #f3f4f6;
+        }
+
+        .sidebar-item.active {
+            background-color: #111827;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Fixed Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-content">
+                <h2 style="margin-bottom: 20px;">Fixed Sidebar</h2>
+                <div class="sidebar-item active">Task Definition</div>
+                <div class="sidebar-item">Model Selection</div>
+                <div class="sidebar-item">Data Builder</div>
+                <div class="sidebar-item">DFE Engine</div>
+                <div class="sidebar-item">Training Center</div>
+                <div class="sidebar-item">Deployment</div>
+                <div class="sidebar-item">Marketplace</div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <div class="scrollable-area">
+                <div class="content-box">
+                    <h1 style="margin-bottom: 20px;">Scrollable Content Area</h1>
+                    
+                    <!-- Generate demo content to show scrolling -->
+                    <script>
+                        for (let i = 1; i <= 20; i++) {
+                            document.write(`
+                                <div class="demo-content">
+                                    <h3>Content Block ${i}</h3>
+                                    <p>This is demo content to show that the main area scrolls while the sidebar remains fixed.</p>
+                                    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+                                </div>
+                            `);
+                        }
+                    </script>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html> 
