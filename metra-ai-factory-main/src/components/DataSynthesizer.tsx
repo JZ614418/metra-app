@@ -186,21 +186,21 @@ const DataSynthesizer = () => {
       if (isChineseTask || selectedModel.isChineseModel) {
         if (taskType.includes('complaint') || taskType.includes('feedback')) {
         return [
-            { name: '淘宝/京东评论', description: '中文电商平台用户评价数据', icon: <ShoppingCart className="h-4 w-4" /> },
-            { name: '微博投诉话题', description: '社交媒体用户投诉内容', icon: <MessageCircle className="h-4 w-4" /> },
-            { name: '12315投诉平台', description: '消费者投诉公开数据', icon: <Users className="h-4 w-4" /> },
-            { name: '知乎问答', description: '用户提问和回答中的抱怨内容', icon: <MessageCircle className="h-4 w-4" /> },
-            { name: '百度贴吧', description: '各类产品和服务的用户反馈', icon: <Globe className="h-4 w-4" /> },
-            { name: '大众点评', description: '餐饮服务类用户评价', icon: <Users className="h-4 w-4" /> }
+            { name: 'Taobao/JD Reviews', description: 'Chinese e-commerce platform user review data', icon: <ShoppingCart className="h-4 w-4" /> },
+            { name: 'Weibo Complaint Topics', description: 'Social media user complaint content', icon: <MessageCircle className="h-4 w-4" /> },
+            { name: '12315 Complaint Platform', description: 'Consumer complaint public data', icon: <Users className="h-4 w-4" /> },
+            { name: 'Zhihu Q&A', description: 'User questions and complaint content in answers', icon: <MessageCircle className="h-4 w-4" /> },
+            { name: 'Baidu Tieba', description: 'User feedback on various products and services', icon: <Globe className="h-4 w-4" /> },
+            { name: 'Dianping Reviews', description: 'Restaurant and service user reviews', icon: <Users className="h-4 w-4" /> }
         ];
         } else if (taskType.includes('health') || taskType.includes('medical') || taskType.includes('中医')) {
         return [
-            { name: '中医药数据库', description: '中医药知识库和病例数据', icon: <FileText className="h-4 w-4" /> },
-            { name: '健康问答平台', description: '春雨医生、丁香园等健康咨询', icon: <MessageCircle className="h-4 w-4" /> },
-            { name: '中医古籍', description: '《黄帝内经》等经典文献', icon: <FileText className="h-4 w-4" /> },
-            { name: '食疗养生论坛', description: '中医食疗和养生讨论', icon: <Users className="h-4 w-4" /> },
-            { name: '中药材数据库', description: '中药材功效和配方信息', icon: <Database className="h-4 w-4" /> },
-            { name: '健康类公众号', description: '中医养生类微信公众号文章', icon: <Newspaper className="h-4 w-4" /> }
+            { name: 'TCM Database', description: 'Traditional Chinese Medicine knowledge base and case data', icon: <FileText className="h-4 w-4" /> },
+            { name: 'Health Q&A Platforms', description: 'Health consultations from Spring Rain Doctor, DXY and others', icon: <MessageCircle className="h-4 w-4" /> },
+            { name: 'Classical TCM Literature', description: 'Classic texts like "Huangdi Neijing" and other medical classics', icon: <FileText className="h-4 w-4" /> },
+            { name: 'Dietary Therapy Forums', description: 'TCM dietary therapy and wellness discussions', icon: <Users className="h-4 w-4" /> },
+            { name: 'Chinese Medicine Database', description: 'Chinese medicinal material effects and formula information', icon: <Database className="h-4 w-4" /> },
+            { name: 'Health WeChat Accounts', description: 'TCM wellness WeChat public account articles', icon: <Newspaper className="h-4 w-4" /> }
         ];
       }
     }

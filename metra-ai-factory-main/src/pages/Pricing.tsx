@@ -18,7 +18,7 @@ const Pricing = () => {
         { text: '1,000 API calls per month', included: true },
         { text: 'Basic models only', included: true },
         { text: 'Community support', included: true },
-        { text: 'Model export', included: false },
+        { text: 'Custom integrations', included: false },
         { text: 'Custom deployment', included: false },
         { text: 'Priority support', included: false },
         { text: 'Advanced analytics', included: false }
@@ -43,7 +43,7 @@ const Pricing = () => {
         { text: '50,000 API calls per month', included: true },
         { text: 'All model types', included: true },
         { text: 'Email support', included: true },
-        { text: 'Model export', included: true },
+        { text: 'Custom integrations', included: true },
         { text: 'Custom deployment', included: true },
         { text: 'Priority support', included: false },
         { text: 'Advanced analytics', included: false }
@@ -65,7 +65,7 @@ const Pricing = () => {
         { text: 'Unlimited API calls', included: true },
         { text: 'All model types', included: true },
         { text: 'Dedicated support', included: true },
-        { text: 'Model export', included: true },
+        { text: 'Custom integrations', included: true },
         { text: 'Custom deployment', included: true },
         { text: 'Priority support', included: true },
         { text: 'Advanced analytics', included: true }
@@ -110,7 +110,7 @@ const Pricing = () => {
     },
     {
       icon: Download,
-      name: "Model Export",
+      name: "Custom integrations",
       description: "One-time purchase",
       pricing: [
         { plan: "Personal", price: "$9.99", limit: "Single model" },

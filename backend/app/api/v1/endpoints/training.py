@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.api import deps
 from app.services.training_service import training_service
 from app.models.user import User
+from app.db.session import get_db
 
 router = APIRouter()
 
@@ -29,8 +30,9 @@ async def start_training(
     task_name: str = Body(..., description="Name of the task"),
     task_description: str = Body(..., description="Description of the task"),
     base_model: str = Body(..., description="Base model to fine-tune"),
-    data_builder_job_id: str = Body(..., description="Data Builder job ID with processed data"),
+    data_builder_job_id: str = Body(..., description="DataBuilder task ID with collected training data"),
     training_mode: Optional[str] = Body("standard", description="Training mode: light/standard/deep"),
+    db: Session = Depends(get_db),
     # current_user: User = Depends(deps.get_current_user) # Temporarily disabled for testing
 ):
     """
@@ -41,20 +43,63 @@ async def start_training(
     - standard: Recommended for most use cases
     - deep: Extended training for best quality
     """
-    # Import here to avoid circular imports
-    from app.api.v1.endpoints.data_builder import data_storage, jobs
+    # Get training data directly from DataBuilder results
+    from app.models.data_collection_task import DataCollectionTask, CollectedDataSample
     
-    # Get training data from Data Builder
-    if data_builder_job_id not in jobs:
-        raise HTTPException(status_code=404, detail="Data Builder job not found")
-    
-    job = jobs[data_builder_job_id]
-    if job['status'] != 'completed':
-        raise HTTPException(status_code=400, detail="Data Builder job not completed yet")
-    
-    training_data = data_storage.get(data_builder_job_id, [])
-    if not training_data:
-        raise HTTPException(status_code=400, detail="No training data found for this job")
+    try:
+        # Get DataBuilder task and its collected samples
+        databuilder_task = db.query(DataCollectionTask).filter(
+            DataCollectionTask.job_id == data_builder_job_id
+        ).first()
+        
+        if not databuilder_task:
+            raise HTTPException(status_code=404, detail="DataBuilder task not found")
+        
+        if databuilder_task.status != "completed":
+            raise HTTPException(status_code=400, detail=f"DataBuilder task not completed (status: {databuilder_task.status})")
+        
+        # Get collected samples
+        collected_samples = db.query(CollectedDataSample).filter(
+            CollectedDataSample.task_id == databuilder_task.id
+        ).all()
+        
+        if not collected_samples:
+            raise HTTPException(status_code=400, detail="No training data available from DataBuilder")
+        
+        # Convert DataBuilder samples to training format
+        training_data = []
+        for sample in collected_samples:
+            if sample.input_text and sample.output_text:
+                # Generation task format (Q&A, text generation, etc.)
+                training_data.append({
+                    "input": sample.input_text,
+                    "output": sample.output_text,
+                    "confidence": sample.confidence or 0.8,
+                    "source": sample.source or "databuilder",
+                    "source_type": sample.source_type or "web"
+                })
+            elif sample.text and sample.label:
+                # Classification task format
+                training_data.append({
+                    "text": sample.text,
+                    "label": sample.label,
+                    "confidence": sample.confidence or 0.8,
+                    "source": sample.source or "databuilder",
+                    "source_type": sample.source_type or "web"
+                })
+            else:
+                # Fallback: use text field for both input and classification
+                training_data.append({
+                    "text": sample.text or "",
+                    "input": sample.text or "",
+                    "output": sample.label or "",
+                    "confidence": sample.confidence or 0.8,
+                    "source": sample.source or "databuilder",
+                    "source_type": sample.source_type or "web"
+                })
+                
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get DataBuilder training data: {str(e)}")
     
     # Map training mode to config
     training_config = None

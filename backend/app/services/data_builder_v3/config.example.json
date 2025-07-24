@@ -1,0 +1,69 @@
+{
+  "ai_provider": "openai",
+  "max_concurrent_requests": 5,
+  "request_timeout": 60,
+  "retry_config": {
+    "max_retries": 3,
+    "initial_delay": 2,
+    "max_delay": 30,
+    "exponential_base": 2
+  },
+  "concurrency": {
+    "max_page_scrapes": 20,
+    "max_ai_extractions": 5,
+    "initial_max_requests": 5,
+    "decrease_multiplier": 0.5,
+    "increase_multiplier": 1.2,
+    "adjustment_period": 60,
+    "failure_threshold": 0.3
+  },
+  "openai": {
+    "api_key": "YOUR_OPENAI_API_KEY_HERE",
+    "models": {
+      "high_quality": "gpt-3.5-turbo",
+      "balanced": "gpt-3.5-turbo",
+      "fast": "gpt-3.5-turbo"
+    },
+    "rate_limits": {
+      "requests_per_minute": 200,
+      "tokens_per_minute": 90000
+    }
+  },
+  "together": {
+    "api_key": "YOUR_TOGETHER_API_KEY_HERE",
+    "models": {
+      "high_quality": "Qwen/Qwen2.5-72B-Instruct-Turbo",
+      "balanced": "deepseek-ai/DeepSeek-V3", 
+      "fast": "google/gemma-3-4b-it"
+    },
+    "rate_limits": {
+      "requests_per_minute": 100,
+      "tokens_per_minute": 100000
+    }
+  },
+  "quality": {
+    "minimum_content_length": 60,
+    "similarity_threshold": 0.6,
+    "language_quality_threshold": 0.7,
+    "source_reliability_threshold": 0.5,
+    "minimum_pass_rate": 0.3,
+    "target_pass_rate": 0.8,
+    "alert_threshold": 0.2
+  },
+  "performance": {
+    "min_samples_per_minute": 100,
+    "max_openai_rpm": 500,
+    "max_openai_tpm": 40000,
+    "max_together_rpm": 3000,
+    "max_together_tpm": 150000,
+    "batch_size": 300,
+    "max_storage_batch_size": 800
+  },
+  "monitoring": {
+    "slack_webhook_url": "",
+    "enable_slack_alerts": true,
+    "enable_prometheus": false,
+    "log_level": "INFO",
+    "metrics_retention_days": 30
+  }
+}

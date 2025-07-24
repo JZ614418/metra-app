@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Brain, Zap, Database, Award, TrendingUp, Clock, ArrowRight, Info, Loader2, FileText, MessageSquare } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useConversationStore } from '@/stores/conversationStore';
-import { api } from '@/lib/api';
+import { api, ModelRecommendation } from '@/lib/api';
 import { useToast } from '@/components/ui/use-toast';
 import { EmptyState } from '@/components/ui/empty-state';
 
@@ -149,12 +149,12 @@ const ModelRecommend: React.FC<ModelRecommendProps> = ({ onSectionChange }) => {
           provider: 'THUDM',
           architecture: 'Transformer',
           parameters: '6B',
-          description: 'ChatGLM3 是智谱AI和清华大学 KEG 实验室联合发布的新一代对话预训练模型，针对中文问答和对话进行了优化。',
-          strengths: ['中文理解能力强', '支持长文本对话', '推理能力出色', '开源可商用'],
-          weaknesses: ['需要较大显存 (13GB+)', '英文能力相对较弱'],
+          description: 'ChatGLM3 is a conversational pre-trained model jointly released by Zhipu AI and Tsinghua University KEG Lab, optimized for Chinese Q&A and dialogue.',
+          strengths: ['Strong Chinese comprehension', 'Long text conversation support', 'Excellent reasoning ability', 'Open source commercial use'],
+          weaknesses: ['Requires large GPU memory (13GB+)', 'Relatively weaker English capabilities'],
           cost: 'Free (Open Source)',
           speed: 'Medium',
-          accuracy: '中文任务 95%+',
+          accuracy: 'Chinese tasks 95%+',
           recommended: true,
           expertOpinion: 'positive',
           icon: '🇨🇳',
@@ -167,12 +167,12 @@ const ModelRecommend: React.FC<ModelRecommendProps> = ({ onSectionChange }) => {
           provider: 'Baichuan Inc',
           architecture: 'Transformer',
           parameters: '7B',
-          description: '百川智能开发的开源可商用的大规模预训练语言模型，在中文和英文基准测试上均表现优秀。',
-          strengths: ['中英双语能力', '知识面广', '生成质量高', '训练数据量大'],
-          weaknesses: ['计算资源要求较高', '部署复杂度中等'],
+          description: 'Large-scale pre-trained language model developed by Baichuan Intelligence, with excellent performance on both Chinese and English benchmarks.',
+          strengths: ['Bilingual Chinese-English capability', 'Broad knowledge base', 'High generation quality', 'Large training dataset'],
+          weaknesses: ['High computational resource requirements', 'Medium deployment complexity'],
           cost: 'Free (Open Source)',
           speed: 'Medium',
-          accuracy: '中文任务 93%+',
+          accuracy: 'Chinese tasks 93%+',
           recommended: false,
           expertOpinion: 'positive',
           icon: '🇨🇳',
@@ -181,16 +181,16 @@ const ModelRecommend: React.FC<ModelRecommendProps> = ({ onSectionChange }) => {
         },
         {
           id: 'qwen-7b',
-          name: 'Qwen-7B (通义千问)',
+          name: 'Qwen-7B (Tongyi Qianwen)',
           provider: 'Alibaba',
           architecture: 'Transformer',
           parameters: '7B',
-          description: '阿里云研发的通义千问大语言模型，支持中英双语，在多项评测中表现优异。',
-          strengths: ['多语言能力强', '代码生成能力', '逻辑推理好', '支持工具调用'],
-          weaknesses: ['显存占用较大', '微调成本较高'],
+          description: 'Tongyi Qianwen large language model developed by Alibaba Cloud, supporting Chinese-English bilingual with excellent performance in multiple evaluations.',
+          strengths: ['Strong multilingual capabilities', 'Code generation ability', 'Good logical reasoning', 'Tool calling support'],
+          weaknesses: ['Large memory usage', 'High fine-tuning cost'],
           cost: 'Free (Open Source)',
           speed: 'Medium',
-          accuracy: '中文任务 94%+',
+          accuracy: 'Chinese tasks 94%+',
           recommended: false,
           expertOpinion: 'positive',
           icon: '🇨🇳',

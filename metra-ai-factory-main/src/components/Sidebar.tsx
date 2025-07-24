@@ -32,12 +32,6 @@ const Sidebar = ({ activeSection, setActiveSection }: SidebarProps) => {
       description: 'Multi-source data'
     },
     {
-      id: 'data-engine',
-      label: 'DFE Engine',
-      icon: Sparkles,
-      description: 'Data fusion & alignment'
-    },
-    {
       id: 'model-training',
       label: 'Training Center',
       icon: Rocket,
@@ -47,7 +41,7 @@ const Sidebar = ({ activeSection, setActiveSection }: SidebarProps) => {
       id: 'model-deploy',
       label: 'Deployment',
       icon: Package,
-      description: 'Export & API'
+      description: 'API Management'
     },
     {
       id: 'model-market',

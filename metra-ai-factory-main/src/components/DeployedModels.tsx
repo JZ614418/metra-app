@@ -6,7 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { 
   ArrowUp, Activity, Globe, Settings, TestTube, FileText, 
   Play, Pause, RefreshCw, CheckCircle2, Code, Download,
-  Rocket, Server, Copy, Eye, EyeOff, Trash2, Brain, Database
+  Rocket, Server, Copy, Eye, EyeOff, Trash2, Brain, Database, MessageSquare
 } from 'lucide-react';
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, 
@@ -20,6 +20,9 @@ import { toast } from 'sonner';
 import { deploymentApi, TrainedModel, Deployment } from '@/lib/api';
 import { format } from 'date-fns';
 import { EmptyState } from '@/components/ui/empty-state';
+import AITester from '@/components/AITester';
+import ChatTester from '@/components/ChatTester';
+import ApiDocumentation from '@/components/ApiDocumentation';
 
 const DeployedModels = () => {
   const [trainedModels, setTrainedModels] = useState<TrainedModel[]>([]);
@@ -28,12 +31,14 @@ const DeployedModels = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedModel, setSelectedModel] = useState<TrainedModel | null>(null);
   const [showDeployDialog, setShowDeployDialog] = useState(false);
-  const [deploymentType, setDeploymentType] = useState<'api' | 'widget' | 'export'>('api');
   const [deploying, setDeploying] = useState(false);
   const [showApiKey, setShowApiKey] = useState<{[key: string]: boolean}>({});
   const [testInput, setTestInput] = useState('');
   const [testingDeployment, setTestingDeployment] = useState<string | null>(null);
-  const [exportFormat, setExportFormat] = useState('onnx');
+  const [showAITester, setShowAITester] = useState(false);
+  const [selectedDeploymentForTesting, setSelectedDeploymentForTesting] = useState<Deployment | null>(null);
+  const [showChatTester, setShowChatTester] = useState(false);
+  const [selectedDeploymentForChat, setSelectedDeploymentForChat] = useState<Deployment | null>(null);
 
   useEffect(() => {
     loadData();
@@ -67,20 +72,15 @@ const DeployedModels = () => {
 
     setDeploying(true);
     try {
-      const config: any = {};
-      if (deploymentType === 'export') {
-        config.format = exportFormat;
-      }
-
       const deployment = await deploymentApi.deployModel({
         model_id: selectedModel.id,
-        type: deploymentType,
-        config
+        type: 'api',
+        config: {}
       });
 
       setDeployments([deployment, ...deployments]);
       setShowDeployDialog(false);
-      toast.success(`Model deployed successfully as ${deploymentType.toUpperCase()}`);
+      toast.success('Model deployed successfully as API');
     } catch (error) {
       console.error('Deployment failed:', error);
       toast.error('Failed to deploy model');
@@ -146,6 +146,16 @@ const DeployedModels = () => {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success('Copied to clipboard');
+  };
+
+  const openAITester = (deployment: Deployment) => {
+    setSelectedDeploymentForTesting(deployment);
+    setShowAITester(true);
+  };
+
+  const openChatTester = (deployment: Deployment) => {
+    setSelectedDeploymentForChat(deployment);
+    setShowChatTester(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -263,7 +273,7 @@ const DeployedModels = () => {
           </Button>
         </div>
         <p className="text-sm text-gray-600">
-          Deploy your trained models as APIs, widgets, or export them for local use.
+          Deploy your trained models as secure REST APIs with authentication and monitoring.
         </p>
       </div>
 
@@ -335,13 +345,18 @@ const DeployedModels = () => {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => {
-                                setTestInput('');
-                                setTestingDeployment(deployment.id);
-                              }}
+                              onClick={() => openChatTester(deployment)}
+                            >
+                              <MessageSquare className="h-4 w-4 mr-1" />
+                              Chat Test
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openAITester(deployment)}
                             >
                               <TestTube className="h-4 w-4 mr-1" />
-                              Test
+                              API Test
                             </Button>
                           </>
                         )}
@@ -375,89 +390,17 @@ const DeployedModels = () => {
                       </div>
                     </div>
 
-                    {/* Deployment Details */}
-                    {deployment.type === 'api' && deployment.endpoint && (
-                      <div className="space-y-3">
-                        <div>
-                          <Label className="text-sm text-gray-600">API Endpoint</Label>
-                          <div className="flex items-center gap-2 mt-1">
-                            <code className="flex-1 px-3 py-2 bg-gray-100 rounded text-xs font-mono text-gray-800">
-                              {deployment.endpoint}
-                            </code>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => copyToClipboard(deployment.endpoint!)}
-                            >
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                        <div>
-                          <Label className="text-sm text-gray-600">API Key</Label>
-                          <div className="flex items-center gap-2 mt-1">
-                            <code className="flex-1 px-3 py-2 bg-gray-100 rounded text-xs font-mono text-gray-800">
-                              {showApiKey[deployment.id] ? deployment.api_key : 'sk-metra-••••••••'}
-                            </code>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setShowApiKey({
-                                ...showApiKey,
-                                [deployment.id]: !showApiKey[deployment.id]
-                              })}
-                            >
-                              {showApiKey[deployment.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => copyToClipboard(deployment.api_key!)}
-                            >
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
+                    {/* API Documentation */}
+                    {deployment.type === 'api' && deployment.api_documentation && (
+                      <div className="mt-4">
+                        <ApiDocumentation 
+                          documentation={deployment.api_documentation}
+                          endpoint={deployment.endpoint!}
+                          modelVersion={deployment.model_version!}
+                        />
                       </div>
                     )}
 
-                    {deployment.type === 'widget' && deployment.widget_code && (
-                      <div>
-                        <Label className="text-sm text-gray-600">Widget Code</Label>
-                        <div className="mt-1">
-                          <Textarea
-                            value={deployment.widget_code}
-                            readOnly
-                            className="font-mono text-xs"
-                            rows={6}
-                          />
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="mt-2"
-                            onClick={() => copyToClipboard(deployment.widget_code!)}
-                          >
-                            <Copy className="h-4 w-4 mr-2" />
-                            Copy Widget Code
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {deployment.type === 'export' && deployment.export_url && (
-                      <div>
-                        <Label className="text-sm text-gray-600">Download Link</Label>
-                        <div className="mt-1">
-                          <Button
-                            variant="outline"
-                            onClick={() => window.open(deployment.export_url, '_blank')}
-                          >
-                            <Download className="h-4 w-4 mr-2" />
-                            Download Model ({deployment.config?.format?.toUpperCase() || 'ONNX'})
-                          </Button>
-                        </div>
-                      </div>
-                    )}
 
                     {/* Metrics */}
                     {deployment.status === 'active' && (
@@ -525,7 +468,7 @@ const DeployedModels = () => {
             <div className="text-4xl mb-4">🚀</div>
             <h4 className="font-medium text-gray-900 mb-2">No deployed models yet</h4>
             <p className="text-sm text-gray-600 mb-4">
-              Deploy your trained models to start using them in production.
+              Deploy your trained models to start using them in production via secure REST APIs.
             </p>
             <Button onClick={() => setShowDeployDialog(true)}>
               Deploy Your First Model
@@ -575,140 +518,62 @@ const DeployedModels = () => {
               </Select>
             </div>
 
-            {/* Deployment Type */}
+            {/* Deployment Type - API Only */}
             <div>
               <Label>Deployment Type</Label>
-              <div className="grid grid-cols-3 gap-3 mt-2">
-                <Card 
-                  className={`cursor-pointer transition-all ${
-                    deploymentType === 'api' ? 'border-gray-900 bg-gray-50' : 'border-gray-200'
-                  }`}
-                  onClick={() => setDeploymentType('api')}
-                >
-                  <CardContent className="p-4 text-center">
-                    <Globe className="h-8 w-8 mx-auto mb-2 text-gray-700" />
-                    <h4 className="font-medium">REST API</h4>
-                    <p className="text-xs text-gray-600 mt-1">
-                      Deploy as HTTP endpoint
-                    </p>
-                  </CardContent>
-                </Card>
+              <Card className="border-gray-900 bg-gray-50 mt-2">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <Globe className="h-8 w-8 text-gray-700" />
+                    <div>
+                      <h4 className="font-medium">REST API Deployment</h4>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Deploy your model as a secure HTTP endpoint with authentication
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
-                <Card 
-                  className={`cursor-pointer transition-all ${
-                    deploymentType === 'widget' ? 'border-gray-900 bg-gray-50' : 'border-gray-200'
-                  }`}
-                  onClick={() => setDeploymentType('widget')}
-                >
-                  <CardContent className="p-4 text-center">
-                    <Code className="h-8 w-8 mx-auto mb-2 text-gray-700" />
-                    <h4 className="font-medium">Web Widget</h4>
-                    <p className="text-xs text-gray-600 mt-1">
-                      Embed in your website
-                    </p>
-                  </CardContent>
-                </Card>
 
-                <Card 
-                  className={`cursor-pointer transition-all ${
-                    deploymentType === 'export' ? 'border-gray-900 bg-gray-50' : 'border-gray-200'
-                  }`}
-                  onClick={() => setDeploymentType('export')}
-                >
-                  <CardContent className="p-4 text-center">
-                    <Download className="h-8 w-8 mx-auto mb-2 text-gray-700" />
-                    <h4 className="font-medium">Export Model</h4>
-                    <p className="text-xs text-gray-600 mt-1">
-                      Download for local use
-                    </p>
-                  </CardContent>
-                </Card>
+            {/* API Deployment Features */}
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h4 className="font-medium text-sm mb-2">API Deployment Features</h4>
+              <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  Auto-scaling inference
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  HTTPS encryption
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  Rate limiting protection
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  API key authentication
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  Real-time monitoring
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  Interactive testing
+                </div>
               </div>
             </div>
 
-            {/* Export Format (if export type selected) */}
-            {deploymentType === 'export' && (
-              <div>
-                <Label>Export Format</Label>
-                <Select value={exportFormat} onValueChange={setExportFormat}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="onnx">ONNX (Recommended)</SelectItem>
-                    <SelectItem value="tensorflow">TensorFlow</SelectItem>
-                    <SelectItem value="pytorch">PyTorch</SelectItem>
-                    <SelectItem value="coreml">Core ML (iOS)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {/* Deployment Features */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="font-medium text-sm mb-2">Included Features</h4>
-              <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
-                {deploymentType === 'api' && (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      Auto-scaling
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      HTTPS encryption
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      Rate limiting
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      API key authentication
-                    </div>
-                  </>
-                )}
-                {deploymentType === 'widget' && (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      Customizable UI
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      Mobile responsive
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      Analytics tracking
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      Multi-language support
-                    </div>
-                  </>
-                )}
-                {deploymentType === 'export' && (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      Optimized for inference
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      Cross-platform compatible
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      Offline usage
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      No API limits
-                    </div>
-                  </>
-                )}
-              </div>
+            {/* Coming Soon Notice */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-blue-800">
+                <span className="font-medium">Coming Soon:</span> Widget embedding and model export features are under development. 
+                Stay tuned for these exciting additions to our deployment options!
+              </p>
             </div>
           </div>
 
@@ -731,6 +596,56 @@ const DeployedModels = () => {
                   Deploy Model
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Chat Tester Dialog */}
+      <Dialog open={showChatTester} onOpenChange={setShowChatTester}>
+        <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Chat Test - Interactive NLP Model Testing
+            </DialogTitle>
+            <DialogDescription>
+              Test your NLP model with a ChatGPT-style interface. Perfect for conversational AI, text generation, and classification tasks.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedDeploymentForChat && (
+            <ChatTester deployment={selectedDeploymentForChat} />
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowChatTester(false)}>
+              Close Chat Test
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Tester Dialog */}
+      <Dialog open={showAITester} onOpenChange={setShowAITester}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <TestTube className="h-5 w-5" />
+              API Test - Technical Model Testing
+            </DialogTitle>
+            <DialogDescription>
+              Test your trained AI model directly with technical parameters and detailed analytics
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedDeploymentForTesting && (
+            <AITester deployment={selectedDeploymentForTesting} />
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAITester(false)}>
+              Close API Test
             </Button>
           </DialogFooter>
         </DialogContent>

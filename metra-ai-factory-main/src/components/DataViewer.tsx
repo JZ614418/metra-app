@@ -462,7 +462,7 @@ What would you like to do?`,
                   size="lg"
                   onClick={() => {
                     // Navigate to model builder for training
-                    navigate(`/dashboard?section=model-builder&data_task=${jobId}&processed_count=${totalCount}`);
+                    navigate(`/dashboard?section=model-training&data_task=${jobId}&collected_count=${totalCount}`);
                   }}
                 >
                   Continue to Training

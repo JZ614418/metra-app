@@ -13,6 +13,7 @@ from urllib.parse import urlparse, quote
 from urllib.robotparser import RobotFileParser
 
 from app.core.config import settings
+from app.services.ai_judge_service import ai_judge_service
 
 
 class DataCollectionService:
@@ -24,7 +25,7 @@ class DataCollectionService:
         self.serper_api_key = settings.SERPER_API_KEY
         self.scrapingbee_api_key = settings.SCRAPINGBEE_API_KEY
         
-        # Legal sources whitelist (expanded for Chinese medical content)
+        # Legal sources whitelist (通用知识库 - 支持任何领域的数据收集)
         self.legal_sources = {
             # Educational and reference
             "wikipedia.org": {"license": "CC BY-SA", "can_scrape": True},
@@ -48,21 +49,32 @@ class DataCollectionService:
             # Chinese Universities and Medical Institutions
             "edu.cn": {"license": "educational", "can_scrape": True},
             "beijing.edu.cn": {"license": "educational", "can_scrape": True},
+            
+            # 通用知识领域网站 (各行业通用)
+            "hanspub.org": {"license": "academic", "can_scrape": True},  # 学术期刊
+            "tech.sina.com.cn": {"license": "public_media", "can_scrape": True},  # 科技新闻
+            "finance.sina.com.cn": {"license": "public_media", "can_scrape": True},  # 财经资讯
+            "sports.sina.com.cn": {"license": "public_media", "can_scrape": True},  # 体育新闻
+            "auto.sina.com.cn": {"license": "public_media", "can_scrape": True},  # 汽车资讯
+            "cctv.com": {"license": "public_media", "can_scrape": True},
+            "xinhuanet.com": {"license": "public_media", "can_scrape": True},
+            "china.com.cn": {"license": "public_media", "can_scrape": True},
+            "news.cn": {"license": "public_media", "can_scrape": True},
+            "people.com.cn": {"license": "public_media", "can_scrape": True},
             "tsinghua.edu.cn": {"license": "educational", "can_scrape": True},
             "pku.edu.cn": {"license": "educational", "can_scrape": True},
-            "bucm.edu.cn": {"license": "educational", "can_scrape": True},  # Beijing University of Chinese Medicine
+            "mit.edu": {"license": "educational", "can_scrape": True},
+            "stanford.edu": {"license": "educational", "can_scrape": True},
+            "harvard.edu": {"license": "educational", "can_scrape": True},
             
-            # Medical and Healthcare Websites (Chinese)
-            "39.net": {"license": "fair_use", "can_scrape": True},  # Major Chinese health site
-            "120ask.com": {"license": "fair_use", "can_scrape": True},
-            "xywy.com": {"license": "fair_use", "can_scrape": True},
-            "familydoctor.com.cn": {"license": "fair_use", "can_scrape": True},
-            "jk.cn": {"license": "fair_use", "can_scrape": True},
-            
-            # Traditional Chinese Medicine specific
-            "tcm.cn": {"license": "fair_use", "can_scrape": True},
-            "zyy123.com": {"license": "fair_use", "can_scrape": True},
-            "zhongyibaike.com": {"license": "fair_use", "can_scrape": True},
+            # 多领域知识网站
+            "baike.so.com": {"license": "fair_use", "can_scrape": True},  # 360百科
+            "hudong.com": {"license": "fair_use", "can_scrape": True},  # 互动百科
+            "sciencenet.cn": {"license": "academic", "can_scrape": True},  # 科学网
+            "cnki.net": {"license": "academic", "can_scrape": True},  # 中国知网
+            "researchgate.net": {"license": "academic", "can_scrape": True},  # 学术网络
+            "ieee.org": {"license": "academic", "can_scrape": True},  # IEEE
+            "acm.org": {"license": "academic", "can_scrape": True},  # ACM
             
             # News and media (with restrictions)
             "reuters.com": {"license": "fair_use", "can_scrape": True, "limit": "snippets"},
@@ -131,8 +143,8 @@ class DataCollectionService:
                     if len(page_results) < current_page_results:
                         break
                         
-                    # Small delay between requests to be respectful
-                    await asyncio.sleep(0.1)
+                    # Minimal delay for maximum speed
+                    await asyncio.sleep(0.02)
                     
                 except Exception as e:
                     print(f"Google search error for page {page + 1}: {e}")
@@ -388,10 +400,31 @@ class DataCollectionService:
     
     async def collect_data_for_task(self, task_type: str, task_description: str, 
                                    data_requirements: Dict) -> Dict:
-        """Intelligently collect data based on task requirements"""
+        """🤖 AI智能数据收集 - 基于任务需求智能收集数据"""
         
-        # Analyze task to determine best data sources
-        queries = self._generate_search_queries(task_type, task_description)
+        # 🤖 使用AI优化数据收集策略
+        try:
+            ai_strategy = await ai_judge_service.optimize_data_collection_strategy(
+                task_description=task_description,
+                current_data_count=0,
+                data_quality_score=5.0  # 初始分数
+            )
+            
+            print(f"🤖 AI数据收集策略:")
+            print(f"   目标数据量: {ai_strategy.get('target_data_count', 1000)}")
+            print(f"   推荐数据源: {ai_strategy.get('recommended_sources', [])}")
+            print(f"   优化搜索查询: {ai_strategy.get('search_queries', [])}")
+            
+            # 使用AI优化的搜索查询
+            ai_queries = ai_strategy.get('search_queries', [])
+            if ai_queries:
+                queries = ai_queries[:10]  # 使用AI生成的查询
+            else:
+                queries = self._generate_search_queries(task_type, task_description)  # 备用方案
+                
+        except Exception as e:
+            print(f"🤖 AI策略生成失败，使用传统方法: {e}")
+            queries = self._generate_search_queries(task_type, task_description)
         
         all_data = []
         stats = {
@@ -427,7 +460,7 @@ class DataCollectionService:
                     stats['with_full_content'] += 1
             
             enriched_data.append(item)
-            await asyncio.sleep(0.1)  # Rate limiting
+            await asyncio.sleep(0.05)  # Reduced rate limiting
         
         # Phase 3: Add specialized sources if needed
         if 'academic' in task_type.lower() or 'research' in task_description.lower():
@@ -444,31 +477,68 @@ class DataCollectionService:
         }
     
     def _generate_search_queries(self, task_type: str, description: str) -> List[str]:
-        """Generate intelligent search queries based on task"""
+        """智能生成基于任务类型的搜索查询 - 支持任何领域"""
         queries = []
         
-        # Base query from description
+        # 基础查询
         base_terms = description.lower().split()[:5]
         queries.append(' '.join(base_terms))
         
-        # Task-specific queries
+        # 通用任务类型查询生成
         if 'sentiment' in task_type.lower() or 'emotion' in task_type.lower():
             queries.extend([
                 f"{description} positive reviews",
-                f"{description} negative feedback",
-                f"{description} customer opinions"
+                f"{description} negative feedback", 
+                f"{description} customer opinions",
+                f"{description} sentiment analysis examples"
             ])
         elif 'classification' in task_type.lower():
             queries.extend([
                 f"{description} examples",
                 f"{description} categories types",
-                f"{description} classification"
+                f"{description} classification",
+                f"{description} machine learning dataset"
             ])
         elif 'qa' in task_type.lower() or 'question' in task_type.lower():
             queries.extend([
                 f"{description} frequently asked questions",
                 f"{description} Q&A",
-                f"{description} common questions answers"
+                f"{description} common questions answers",
+                f"{description} interview questions"
+            ])
+        elif 'generation' in task_type.lower() or 'text' in task_type.lower():
+            queries.extend([
+                f"{description} examples",
+                f"{description} templates",
+                f"{description} writing samples",
+                f"{description} content generation"
+            ])
+        elif 'translation' in task_type.lower():
+            queries.extend([
+                f"{description} translation examples",
+                f"{description} bilingual text",
+                f"{description} parallel corpus"
+            ])
+        elif 'summarization' in task_type.lower():
+            queries.extend([
+                f"{description} summary examples",
+                f"{description} article summaries",
+                f"{description} text summarization"
+            ])
+        elif 'code' in task_type.lower() or 'programming' in task_type.lower():
+            queries.extend([
+                f"{description} code examples",
+                f"{description} programming tutorial",
+                f"{description} coding problems",
+                f"{description} software development"
+            ])
+        else:
+            # 通用fallback查询
+            queries.extend([
+                f"{description} tutorial",
+                f"{description} guide",
+                f"{description} examples",
+                f"{description} best practices"
             ])
         
         return queries[:10]  # Limit number of queries
@@ -489,12 +559,82 @@ class DataCollectionService:
         # TODO: Implement PubMed API
         return []
     
-    def _is_whitelisted(self, url: str) -> bool:
-        """Check if URL is in whitelist"""
+    async def _is_whitelisted(self, url: str) -> bool:
+        """AI智能判断URL是否可以合法爬取"""
         domain = urlparse(url).netloc
+        
+        # 1. 快速检查预定义白名单
         for legal_domain in self.legal_sources:
             if legal_domain in domain:
                 return True
+        
+        # 2. AI智能判断 - 这是关键创新！
+        try:
+            ai_judgment = await ai_judge_service.judge_website_legality(url)
+            
+            # AI评分系统：70分以上认为可以爬取
+            if ai_judgment.get('legal_score', 0) >= 70 and ai_judgment.get('can_scrape', False):
+                print(f"🤖 AI判断允许爬取: {url[:50]}... (评分: {ai_judgment['legal_score']})")
+                print(f"   理由: {ai_judgment.get('reasoning', '')[:100]}...")
+                return True
+            elif ai_judgment.get('legal_score', 0) >= 50:
+                print(f"⚠️  AI建议谨慎爬取: {url[:50]}... (评分: {ai_judgment['legal_score']})")
+                # 中等评分的网站，检查具体建议
+                if 'public' in ai_judgment.get('reasoning', '').lower():
+                    return True
+        except Exception as e:
+            print(f"🤖 AI判断出错，使用传统方法: {e}")
+        
+        # 3. 传统判断作为备用
+        if await self._check_robots_permission(url):
+            return True
+            
+        if await self._auto_detect_legal_domain(domain):
+            return True
+            
+        return False
+    
+    async def _check_robots_permission(self, url: str) -> bool:
+        """异步检查robots.txt权限"""
+        try:
+            parsed_url = urlparse(url)
+            robots_url = f"{parsed_url.scheme}://{parsed_url.netloc}/robots.txt"
+            
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(robots_url)
+                if response.status_code == 200:
+                    robots_content = response.text.lower()
+                    # 简单检查是否允许爬取
+                    if "disallow: /" not in robots_content or "allow: /" in robots_content:
+                        return True
+        except:
+            pass
+        return False
+    
+    async def _auto_detect_legal_domain(self, domain: str) -> bool:
+        """自动检测域名是否为合法可爬取类型"""
+        legal_indicators = [
+            # 政府网站
+            '.gov', '.gov.cn', '.org.cn', 
+            # 教育机构
+            '.edu', '.edu.cn', '.ac.cn',
+            # 开放数据
+            'wikipedia', 'wikidata', 'wikimedia',
+            # 学术期刊
+            'arxiv', 'pubmed', 'scholar',
+            # 开源社区
+            'github', 'gitlab', 'stackoverflow',
+            # 新闻媒体（公共信息）
+            'news', 'xinhua', 'people', 'cctv',
+            # 医疗健康（公共信息）
+            'health', 'medical', 'medicine'
+        ]
+        
+        domain_lower = domain.lower()
+        for indicator in legal_indicators:
+            if indicator in domain_lower:
+                return True
+        
         return False
     
     async def scrape_full_content(self, url: str) -> Optional[str]:
@@ -557,7 +697,7 @@ class DataCollectionService:
         # If specific URLs provided, scrape them
         if urls:
             for url in urls[:max_results]:
-                if self._is_whitelisted(url):
+                if await self._is_whitelisted(url):
                     content = await self.scrape_full_content(url)
                     if content:
                         all_data.append({
@@ -573,14 +713,14 @@ class DataCollectionService:
                 query, sources, max_results
             )
             
-            # Enhanced ScrapingBee integration for better training data
+            # Aggressive ScrapingBee integration for maximum data quality
             enhanced_count = 0
-            max_enhancements = 20 if include_full_content else 15  # Increased limits
+            max_enhancements = min(len(search_results), 200)  # Process up to 200 URLs
             
-            print(f"Starting ScrapingBee enhancement for {len(search_results)} results...")
+            print(f"Starting ScrapingBee enhancement for {len(search_results)} results (max {max_enhancements})...")
             
-            # Process results in batches to avoid overwhelming the API
-            batch_size = 5
+            # Large batch processing for maximum speed
+            batch_size = 25  # Increased to 25 concurrent requests
             for i in range(0, len(search_results), batch_size):
                 batch = search_results[i:i+batch_size]
                 enhancement_tasks = []
@@ -591,12 +731,12 @@ class DataCollectionService:
                         
                     url = item.get('url', '')
                     
-                    # Skip if already has substantial content
-                    if 'full_content' in item or ('content' in item and len(item['content']) > 1000):
+                    # Skip if already has substantial content (increased threshold)
+                    if 'full_content' in item or ('content' in item and len(item['content']) > 500):
                         continue
                     
                     # Try to enhance with ScrapingBee if whitelisted
-                    if self._is_whitelisted(url):
+                    if await self._is_whitelisted(url):
                         enhancement_tasks.append(self._enhance_with_scrapingbee(item, url))
                         enhanced_count += 1
                 
@@ -609,8 +749,8 @@ class DataCollectionService:
                         elif isinstance(enhanced, Exception):
                             print(f"✗ Enhancement failed: {enhanced}")
                     
-                    # Rate limiting between batches
-                    await asyncio.sleep(1.0)
+                    # Minimal rate limiting for maximum speed
+                    await asyncio.sleep(0.05)  # Reduced to 0.05 seconds
                 
                 if enhanced_count >= max_enhancements:
                     break

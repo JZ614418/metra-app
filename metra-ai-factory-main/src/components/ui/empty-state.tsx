@@ -50,7 +50,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
           <Button 
             onClick={action.onClick}
             variant={action.variant || 'default'}
-            className="bg-gray-900 hover:bg-gray-800"
+            className="bg-black hover:bg-gray-800 text-white border-0"
           >
             {action.label}
           </Button>

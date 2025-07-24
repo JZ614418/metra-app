@@ -1,14 +1,16 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, conversations, data_builder, data_collection, dfe, recommendations, training, deployment, training_e2e
+from app.api.v1.endpoints import auth, conversations, data_builder, data_builder_v2, data_builder_v3, data_collection, recommendations, training, deployment, training_e2e, monitoring
 
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(conversations.router, tags=["conversations"])
 api_router.include_router(data_builder.router, prefix="/data-builder", tags=["data-builder"])
+api_router.include_router(data_builder_v2.router, prefix="/data-builder", tags=["data-builder-v2"])
+api_router.include_router(data_builder_v3.router, prefix="/data-builder-v3", tags=["data-builder-v3"])
 api_router.include_router(data_collection.router, prefix="/data-collection", tags=["data-collection"])
-api_router.include_router(dfe.router, prefix="/dfe", tags=["dfe"])
 api_router.include_router(recommendations.router, prefix="/recommendations", tags=["recommendations"])
 api_router.include_router(training.router, prefix="/training", tags=["training"])
 api_router.include_router(deployment.router, prefix="/deployment", tags=["deployment"])
-api_router.include_router(training_e2e.router, prefix="/training-e2e", tags=["training-e2e"]) 
+api_router.include_router(training_e2e.router, prefix="/training-e2e", tags=["training-e2e"])
+api_router.include_router(monitoring.router, prefix="/monitoring", tags=["monitoring"]) 

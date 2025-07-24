@@ -79,8 +79,8 @@ class DataGenerationService:
                     await asyncio.sleep(0.5)  # Rate limiting
         
         else:
-            # Generate unlabeled data
-            batch_size = 20
+            # Generate unlabeled data - increased batch size for faster collection
+            batch_size = min(100, count // 10)  # Adaptive batch size, max 100
             for i in range(0, count, batch_size):
                 batch_count = min(batch_size, count - i)
                 

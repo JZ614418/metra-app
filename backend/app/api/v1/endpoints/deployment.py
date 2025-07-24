@@ -106,13 +106,13 @@ def stop_deployment(
     return {"status": "stopped"}
 
 @router.post("/{deployment_id}/test", response_model=Dict[str, Any])
-def test_deployment(
+async def test_deployment(
     deployment_id: str,
     request: TestDeploymentRequest,
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
     """Test a deployment with sample input"""
-    result = deployment_service.test_deployment(
+    result = await deployment_service.test_deployment(
         deployment_id, str(current_user.id), request.test_input
     )
     return result

@@ -47,6 +47,47 @@ EXCLUDED_MODEL_TYPES = [
     'multimodal',                                     # Multimodal models (unless specifically needed)
 ]
 
+def extract_keywords_simple(task_definition):
+    """
+    Simple keyword extraction fallback when AI is unavailable.
+    Analyzes task definition using rule-based patterns.
+    """
+    keywords = []
+    task_str = str(task_definition).lower()
+    
+    # Language detection
+    chinese_indicators = ['中', '医', '中文', 'chinese', '中医', '饮食', '养生', '诊断', '治疗']
+    if any(indicator in task_str for indicator in chinese_indicators):
+        keywords.extend(['chinese', 'zh', 'chatglm', 'baichuan', 'qwen', 'yi'])
+        print("🇨🇳 Detected Chinese task")
+    else:
+        keywords.extend(['english', 'en'])
+        print("🇺🇸 Detected English task")
+    
+    # Domain/Task type detection
+    if any(word in task_str for word in ['medical', '医疗', 'health', '健康', '医', 'tcm', '中医']):
+        keywords.extend(['medical', 'health', 'biomedical', 'clinical'])
+        print("🏥 Detected medical domain")
+    elif any(word in task_str for word in ['code', '代码', 'programming', 'python', 'javascript']):
+        keywords.extend(['code', 'programming', 'codellama', 'starcoder'])
+        print("💻 Detected coding domain")
+    elif any(word in task_str for word in ['chat', '对话', 'conversation', 'dialog']):
+        keywords.extend(['chat', 'conversation', 'instruct', 'assistant'])
+        print("💬 Detected chat domain")
+    elif any(word in task_str for word in ['sentiment', '情感', 'emotion', 'feeling']):
+        keywords.extend(['sentiment', 'emotion', 'classification'])
+        print("😊 Detected sentiment domain")
+    elif any(word in task_str for word in ['translate', '翻译', 'translation']):
+        keywords.extend(['translation', 'multilingual'])
+        print("🌍 Detected translation domain")
+    
+    # Always add general text generation
+    keywords.extend(['text-generation', 'language-model', 'llm'])
+    
+    # Remove duplicates and join
+    unique_keywords = list(dict.fromkeys(keywords))
+    return ', '.join(unique_keywords)
+
 CHINESE_MODEL_KEYWORDS = [
     'chatglm', 'baichuan', 'qwen', 'yi', 'chinese-llama', 'chinese-alpaca',
     'bloom-zh', 'pangu', 'ernie', 'nezha', 'macbert', 'wobert',
@@ -119,9 +160,11 @@ async def get_model_recommendations(
     2. Search Hugging Face Hub using these keywords with smart filtering
     """
     
+    # Hybrid Strategy: AI first, fallback to simple keyword extraction
+    search_keywords = None
+    
     try:
-        # Stage 1: Use AI to extract search keywords
-        # Use the new OpenAI client API
+        # Strategy 1: Use AI to extract search keywords (Primary)
         client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
         
         response = await client.chat.completions.create(
@@ -130,36 +173,42 @@ async def get_model_recommendations(
                 {"role": "system", "content": KEYWORD_EXTRACTION_PROMPT},
                 {"role": "user", "content": f"Task definition:\n{json.dumps(recommendation_request.task_definition, indent=2)}"}
             ],
-            temperature=0.3,  # Lower temperature for more consistent keyword extraction
+            temperature=0.3,
             max_tokens=100
         )
         
         search_keywords = response.choices[0].message.content.strip()
-        print(f"AI generated keywords: {search_keywords}")  # Debug log
+        print(f"✅ AI generated keywords: {search_keywords}")
         
-        # Stage 2: Search Hugging Face Hub with prioritized strategy
-        # Extract task requirements
-        task_type = 'text-generation'  # default
-        language = 'english'  # default
-        domain = 'general'  # default
+    except Exception as ai_error:
+        # Strategy 2: Fallback to simple keyword extraction
+        print(f"⚠️ AI keyword extraction failed, using fallback: {ai_error}")
+        search_keywords = extract_keywords_simple(recommendation_request.task_definition)
+        print(f"📝 Fallback keywords: {search_keywords}")
+    
+    # Stage 2: Search Hugging Face Hub with prioritized strategy (works for both AI and fallback)
+    # Extract task requirements
+    task_type = 'text-generation'  # default
+    language = 'english'  # default
+    domain = 'general'  # default
+    
+    if isinstance(recommendation_request.task_definition, dict):
+        # Try to extract structured fields
+        task_type = recommendation_request.task_definition.get('task_type', 'text-generation').lower()
+        language = recommendation_request.task_definition.get('language', 'english').lower()
+        domain = recommendation_request.task_definition.get('domain', 'general').lower()
         
-        if isinstance(recommendation_request.task_definition, dict):
-            # Try to extract structured fields
-            task_type = recommendation_request.task_definition.get('task_type', 'text-generation').lower()
-            language = recommendation_request.task_definition.get('language', 'english').lower()
-            domain = recommendation_request.task_definition.get('domain', 'general').lower()
-            
-            # Auto-detect language from task description if not specified
-            task_str = str(recommendation_request.task_definition).lower()
-            
-            # Check if language field is not explicitly set
-            if 'language' not in recommendation_request.task_definition:
-                # Check for Chinese characters in any field
-                chinese_pattern = re.compile(r'[\u4e00-\u9fff]+')
-                full_str = json.dumps(recommendation_request.task_definition, ensure_ascii=False)
-                if chinese_pattern.search(full_str):
-                    language = 'chinese'
-                    print(f"Auto-detected Chinese language from task content")
+        # Auto-detect language from task description if not specified
+        task_str = str(recommendation_request.task_definition).lower()
+        
+        # Check if language field is not explicitly set
+        if 'language' not in recommendation_request.task_definition:
+            # Check for Chinese characters in any field
+            chinese_pattern = re.compile(r'[\u4e00-\u9fff]+')
+            full_str = json.dumps(recommendation_request.task_definition, ensure_ascii=False)
+            if chinese_pattern.search(full_str):
+                language = 'chinese'
+                print(f"Auto-detected Chinese language from task content")
             
             # Also check for language indicators in the content
             if 'chinese' in task_str or '中文' in task_str or '中医' in task_str:
@@ -345,7 +394,7 @@ async def get_model_recommendations(
                     {
                         "model_id": "THUDM/chatglm3-6b",
                         "model_name": "ChatGLM3-6B",
-                        "description": "ChatGLM3 是智谱AI和清华大学 KEG 实验室联合发布的新一代对话预训练模型",
+                        "description": "ChatGLM3 is a conversational pre-trained model jointly released by Zhipu AI and Tsinghua University KEG Lab",
                         "tags": ["text-generation", "chinese", "chatglm"],
                         "downloads": 1000000,
                         "likes": 1000,
@@ -354,7 +403,7 @@ async def get_model_recommendations(
                     {
                         "model_id": "baichuan-inc/Baichuan2-7B-Chat",
                         "model_name": "Baichuan2-7B-Chat",
-                        "description": "百川智能开发的开源可商用的大规模预训练语言模型",
+                        "description": "Large-scale pre-trained language model developed by Baichuan Intelligence with open source commercial license",
                         "tags": ["text-generation", "chinese", "baichuan"],
                         "downloads": 500000,
                         "likes": 500,
@@ -363,7 +412,7 @@ async def get_model_recommendations(
                     {
                         "model_id": "Qwen/Qwen-7B-Chat",
                         "model_name": "Qwen-7B-Chat",
-                        "description": "通义千问是阿里云研发的大语言模型",
+                        "description": "Tongyi Qianwen is a large language model developed by Alibaba Cloud",
                         "tags": ["text-generation", "chinese", "qwen"],
                         "downloads": 800000,
                         "likes": 800,
@@ -400,9 +449,4 @@ async def get_model_recommendations(
             recommendations=recommendations,
             search_keywords=search_keywords
         )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error getting model recommendations: {str(e)}"
-        ) 
+ 

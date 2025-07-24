@@ -19,4 +19,5 @@ class User(Base):
     
     # Relationships
     conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
-    task_definitions = relationship("TaskDefinition", back_populates="user", cascade="all, delete-orphan") 
+    task_definitions = relationship("TaskDefinition", back_populates="user", cascade="all, delete-orphan")
+    data_tasks = relationship("DataCollectionTask", back_populates="user", cascade="all, delete-orphan") 

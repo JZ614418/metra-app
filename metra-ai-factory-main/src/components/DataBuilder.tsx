@@ -48,6 +48,7 @@ interface TaskInfo {
   labels: string[];
   description?: string;
   domain?: string;
+  data_volume?: number;
 }
 
 interface SelectedModel {
@@ -99,7 +100,8 @@ const DataBuilder = () => {
             language: task.language || 'chinese',
             labels: task.labels || [],
             description: task.description || '',
-            domain: task.domain || 'general'
+            domain: task.domain || 'general',
+            data_volume: task.data_volume || task.dataVolume || 20000
           };
         }
       } catch (e) {
@@ -120,7 +122,8 @@ const DataBuilder = () => {
             language: finalizedTask.language || 'chinese',
             labels: finalizedTask.labels || [],
             description: finalizedTask.description || finalizedTask.features || '',
-            domain: finalizedTask.domain || 'general'
+            domain: finalizedTask.domain || 'general',
+            data_volume: finalizedTask.data_volume || finalizedTask.dataVolume || 20000
           };
         }
       } catch (e) {
@@ -175,21 +178,32 @@ const DataBuilder = () => {
   const [loadingRecommendation, setLoadingRecommendation] = useState(false);
   const [useRecommendation, setUseRecommendation] = useState(true);
   
-  // Collection settings
-  const [dataCount, setDataCount] = useState<number[]>([10000]);
+  // Collection settings - Use task definition data volume if available
+  const [dataCount, setDataCount] = useState<number[]>(() => {
+    const defaultCount = taskInfo?.data_volume || 10000;
+    return [defaultCount];
+  });
   const [qualityMode, setQualityMode] = useState('balanced');
+  const [enhancedMode, setEnhancedMode] = useState(false); // 增强模式：全文处理，无上限
   
   // Collection progress
   const [isCollecting, setIsCollecting] = useState(false);
-  const [jobId, setJobId] = useState<string | null>('demo-task-123'); // Set a demo task ID to show DFE button
+  const [jobId, setJobId] = useState<string | null>(null); // Real task ID from API
   const [progress, setProgress] = useState(0);
   const [collectedCount, setCollectedCount] = useState(0);
+  const [currentStep, setCurrentStep] = useState<string>('');
   const [sourcesProgress, setSourcesProgress] = useState<Record<string, number>>({});
 
   const [selectedTask, setSelectedTask] = useState<CollectionTask | null>(null);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [isJsonDialogOpen, setIsJsonDialogOpen] = useState(false);
   const [jsonData, setJsonData] = useState<string>('');
+  
+  // Data preview states
+  const [showDataPreview, setShowDataPreview] = useState(false);
+  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [previewJobId, setPreviewJobId] = useState<string | null>(null);
   
   // Get AI recommendation on mount only if we have task and model info
   useEffect(() => {
@@ -205,21 +219,40 @@ const DataBuilder = () => {
     try {
       const rec = await dataBuilderAPI.getRecommendation({
         task_info: taskInfo,
-        selected_model: selectedModel
+        selected_model: selectedModel,
+        user_data_volume: taskInfo?.data_volume || null
       });
       setRecommendation(rec);
       
-      // Apply recommendation
-      if (rec) {
-        setDataCount([rec.recommended_count]);
+      // Apply recommendation only if user wants to use AI recommendation
+      // Don't automatically override user's task definition settings
+      if (rec && useRecommendation) {
+        // Only apply if AI recommendation differs significantly from task definition
+        const taskDataVolume = taskInfo?.data_volume;
+        if (!taskDataVolume || Math.abs(rec.recommended_count - taskDataVolume) / taskDataVolume > 0.1) {
+          setDataCount([rec.recommended_count]);
+        }
         setQualityMode(rec.quality_mode);
       }
     } catch (error) {
       console.error('Failed to get recommendation:', error);
+      
+      let errorMessage = "Using default settings instead";
+      
+      if (error instanceof Error) {
+        if (error.message.includes('401') || error.message.includes('unauthorized')) {
+          errorMessage = "Authentication required to get AI recommendations. Using default settings.";
+        } else if (error.message.includes('500') || error.message.includes('server')) {
+          errorMessage = "AI service temporarily unavailable. Using default settings.";
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = "Network error. Using default settings for now.";
+        }
+      }
+      
       toast({
-        title: "Failed to get AI recommendation",
-        description: "Using default settings",
-        variant: "destructive",
+        title: "AI recommendation unavailable",
+        description: errorMessage,
+        variant: "default", // Use default instead of destructive for less critical errors
       });
     } finally {
       setLoadingRecommendation(false);
@@ -234,37 +267,154 @@ const DataBuilder = () => {
     setCollectedCount(0);
     
     try {
-      const response = await dataBuilderAPI.startCollection({
-        task_info: taskInfo,
-        selected_model: selectedModel,
-        data_count: dataCount[0],
-        quality_mode: qualityMode,
-        use_recommendation: useRecommendation
+      // 生成任务名称
+      const taskName = `${taskInfo.description || 'Data Collection'} - ${new Date().toLocaleDateString()}`;
+      
+      // 使用V3 API - 修复版本，解决硬编码和性能问题
+      const response = await dataBuilderAPI.startDataCollection({
+        task: taskInfo.task,
+        type: taskInfo.type,
+        language: taskInfo.language,
+        domain: taskInfo.domain || 'general',
+        description: taskInfo.description || taskInfo.task,
+        labels: taskInfo.labels,
+        data_volume: dataCount[0]
       });
       
-      setJobId(response.job_id);
+      if (response.success) {
+        setJobId(response.data.task_id);
+      } else {
+        throw new Error(response.error || 'Failed to start data collection');
+      }
       
-      // Start polling for progress
-      pollProgress(response.job_id);
+      toast({
+        title: "🚀 Fast data collection started",
+        description: response.data?.message || `Estimated ${dataCount[0]} samples will be collected quickly`,
+      });
+      
+      // 使用V3的进度轮询
+      if (response.success) {
+        pollProgressV3(response.data.task_id);
+      }
       
     } catch (error) {
       console.error('Failed to start collection:', error);
       setIsCollecting(false);
+      
+      let errorMessage = "Unknown error occurred";
+      let errorTitle = "Failed to start data collection";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        
+        // Provide more specific error messages based on common failure scenarios
+        if (error.message.includes('401') || error.message.includes('unauthorized')) {
+          errorTitle = "Authentication Required";
+          errorMessage = "Please log in again to start data collection.";
+        } else if (error.message.includes('403') || error.message.includes('forbidden')) {
+          errorTitle = "Access Denied";
+          errorMessage = "You don't have permission to start data collection.";
+        } else if (error.message.includes('500') || error.message.includes('server')) {
+          errorTitle = "Server Error";
+          errorMessage = "Server is temporarily unavailable. Please try again in a few minutes.";
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorTitle = "Connection Error";
+          errorMessage = "Unable to connect to server. Please check your internet connection.";
+        }
+      }
+      
       toast({
-        title: "Failed to start data collection",
-        description: error instanceof Error ? error.message : "Unknown error",
+        title: errorTitle,
+        description: errorMessage,
         variant: "destructive",
       });
     }
   };
   
+  // V3 进度轮询 - 修复版本
+  const pollProgressV3 = async (jobId: string) => {
+    const interval = setInterval(async () => {
+      try {
+        const result = await dataBuilderAPI.getTaskProgress(jobId);
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to get progress');
+        }
+        const status = result.data;
+        
+        setProgress(status.progress_percentage || 0);
+        setCollectedCount(status.samples_collected || status.collected_count || 0);
+        
+        // Update current step for better user feedback
+        if (status.current_step) {
+          setCurrentStep(status.current_step);
+        }
+        
+        if (status.status === 'completed') {
+          clearInterval(interval);
+          setIsCollecting(false);
+          
+          toast({
+            title: "🎉 Data collection completed!",
+            description: `Successfully collected ${status.samples_collected || status.collected_count || 0} high-quality samples`,
+          });
+        } else if (status.status === 'failed') {
+          clearInterval(interval);
+          setIsCollecting(false);
+          
+          // Provide more helpful error message for failed collection
+          const errorDescription = status.error || "Collection failed. Please try again with different settings.";
+          
+          toast({
+            title: "Data collection failed",
+            description: errorDescription,
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error('Failed to get status:', error);
+        
+        // Handle network errors during polling
+        if (error instanceof Error) {
+          if (error.message.includes('401') || error.message.includes('unauthorized')) {
+            clearInterval(interval);
+            setIsCollecting(false);
+            toast({
+              title: "Session expired",
+              description: "Please log in again to continue monitoring collection progress.",
+              variant: "destructive",
+            });
+          }
+          // For other errors, continue polling but log the issue
+        }
+      }
+    }, 2000); // 每2秒检查一次
+    
+    // 10分钟后停止轮询（防止无限轮询）
+    setTimeout(() => {
+      clearInterval(interval);
+      if (isCollecting) {
+        setIsCollecting(false);
+        toast({
+          title: "Collection timeout",
+          description: "Collection is taking longer than expected. Please check the status manually or try again.",
+          variant: "default", // Use default variant for timeout (less severe than error)
+        });
+      }
+    }, 600000);
+  };
+
+  // Legacy V1 进度轮询 (fallback)
   const pollProgress = async (jobId: string) => {
     const interval = setInterval(async () => {
       try {
-        const status = await dataBuilderAPI.getJobProgress(jobId);
+        const result = await dataBuilderAPI.getTaskProgress(jobId);
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to get progress');
+        }
+        const status = result.data;
         
-        setProgress(status.progress);
-        setCollectedCount(status.collected_count);
+        setProgress(status.progress_percentage || status.progress || 0);
+        setCollectedCount(status.samples_collected || status.collected_count || 0);
         setSourcesProgress(status.sources_progress || {});
         
         if (status.status === 'completed') {
@@ -302,15 +452,39 @@ const DataBuilder = () => {
       return recommendation.estimated_time_minutes;
     }
     
-    // Simple estimation based on count and mode
-    const baseTime = dataCount[0] / 250; // ~250 samples per minute
+    // Enhanced estimation based on count, mode, and task complexity
+    const count = dataCount[0];
+    let baseRate = 250; // samples per minute for balanced mode
+    
+    // Adjust base rate based on task complexity
+    if (taskInfo?.type === 'text-generation' || taskInfo?.type === 'translation') {
+      baseRate = 180; // Slower for complex text tasks
+    } else if (taskInfo?.type === 'classification') {
+      baseRate = 350; // Faster for simpler classification tasks
+    }
+    
+    // Apply quality mode multipliers
     const modeMultiplier = {
-      'speed': 0.5,
-      'balanced': 1,
-      'quality': 2
+      'speed': 0.4,    // Much faster but lower quality
+      'balanced': 1.0, // Standard rate
+      'quality': 2.2   // Slower but higher quality
     }[qualityMode] || 1;
     
-    return Math.round(baseTime * modeMultiplier);
+    // Add overhead for setup and processing
+    const baseTime = count / baseRate;
+    const totalTime = (baseTime * modeMultiplier) + 2; // Add 2 minutes setup time
+    
+    return Math.round(Math.max(totalTime, 3)); // Minimum 3 minutes
+  };
+  
+  const getRemainingTime = () => {
+    if (!isCollecting || progress === 0) return null;
+    
+    const elapsedMinutes = Date.now() / 60000; // Rough elapsed time
+    const estimatedTotal = getEstimatedTime();
+    const remaining = Math.round(estimatedTotal * (100 - progress) / 100);
+    
+    return Math.max(remaining, 1); // At least 1 minute remaining
   };
   
   const formatTime = (minutes: number) => {
@@ -320,6 +494,75 @@ const DataBuilder = () => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return mins > 0 ? `${hours}h ${mins}m` : `${hours} hours`;
+  };
+
+  // Data preview function with enhanced error handling
+  const viewTaskData = async (taskJobId: string) => {
+    setLoadingPreview(true);
+    setPreviewJobId(taskJobId);
+    setShowDataPreview(true);
+    
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/data-builder/job/${taskJobId}/data`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}`;
+        
+        if (response.status === 401) {
+          errorMessage = 'Authentication expired. Please log in again.';
+        } else if (response.status === 403) {
+          errorMessage = 'Access denied. You may not have permission to view this data.';
+        } else if (response.status === 404) {
+          errorMessage = 'Data not found. The collection task may not exist or may have been deleted.';
+        } else if (response.status === 500) {
+          errorMessage = 'Server error. Please try again later.';
+        } else if (response.status >= 400 && response.status < 500) {
+          errorMessage = 'Invalid request. Please check your settings and try again.';
+        }
+        
+        throw new Error(errorMessage);
+      }
+      
+      const data = await response.json();
+      const samples = data.data || [];
+      setPreviewData(samples);
+      
+      if (samples.length === 0) {
+        toast({
+          title: "No data available",
+          description: "This task doesn't have any collected data yet. Try starting a new collection.",
+          variant: "default"
+        });
+      } else {
+        toast({
+          title: "Data loaded successfully",
+          description: `Found ${data.total || samples.length} samples`,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load data:', error);
+      setPreviewData([]);
+      
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      
+      toast({
+        title: "Failed to load data",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingPreview(false);
+    }
   };
 
   // Show empty state if no task or model is selected
@@ -574,15 +817,67 @@ const DataBuilder = () => {
             </RadioGroup>
           </div>
 
-          {/* Estimated Time */}
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-gray-600" />
-              <span className="font-medium">Estimated Time:</span>
+          {/* Enhanced Mode Toggle */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-4 rounded-lg border bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
+              <div className="flex-1 space-y-1">
+                <Label htmlFor="enhanced-mode" className="flex items-center gap-2 cursor-pointer">
+                  <Sparkles className="h-4 w-4 text-purple-600" />
+                  <span className="font-medium">Enhanced Collection Mode</span>
+                  <Badge variant="secondary" className="ml-2">NEW</Badge>
+                </Label>
+                <p className="text-sm text-gray-600">
+                  Process full articles without limits. Extract all relevant samples (may find 50+ samples per article).
+                </p>
+              </div>
+              <Switch
+                id="enhanced-mode"
+                checked={enhancedMode}
+                onCheckedChange={setEnhancedMode}
+                disabled={isCollecting}
+              />
             </div>
-            <span className="text-lg font-semibold text-gray-900">
-              {formatTime(getEstimatedTime())}
-            </span>
+            {enhancedMode && (
+              <Alert className="border-purple-200 bg-purple-50">
+                <Sparkles className="h-4 w-4 text-purple-600" />
+                <AlertDescription className="text-sm">
+                  <strong>Enhanced mode active:</strong> Articles will be processed in full without truncation. 
+                  This may take longer but ensures no valuable data is missed. Perfect for FAQ pages, documentation, and content-rich sources.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          {/* Estimated Time */}
+          <div className="p-4 bg-gray-50 rounded-lg space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-gray-600" />
+                <span className="font-medium">Estimated Time:</span>
+              </div>
+              <span className="text-lg font-semibold text-gray-900">
+                {formatTime(getEstimatedTime())}
+              </span>
+            </div>
+            
+            {/* Time breakdown */}
+            <div className="grid grid-cols-3 gap-4 text-xs text-gray-600 pt-2 border-t border-gray-200">
+              <div>
+                <p className="font-medium">Task Type</p>
+                <p className="capitalize">{taskInfo?.type || 'Unknown'}</p>
+              </div>
+              <div>
+                <p className="font-medium">Quality Mode</p>
+                <p className="capitalize">{qualityMode}</p>
+              </div>
+              <div>
+                <p className="font-medium">Sample Rate</p>
+                <p>
+                  {qualityMode === 'speed' ? '~400/min' : 
+                   qualityMode === 'quality' ? '~150/min' : '~250/min'}
+                </p>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -591,7 +886,15 @@ const DataBuilder = () => {
       {isCollecting && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Collection Progress</CardTitle>
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-lg">Collection Progress</CardTitle>
+              {getRemainingTime() && (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {formatTime(getRemainingTime()!)} remaining
+                </Badge>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -603,6 +906,22 @@ const DataBuilder = () => {
               <div className="flex justify-between text-xs text-gray-500">
                 <span>{collectedCount.toLocaleString()} collected</span>
                 <span>{dataCount[0].toLocaleString()} target</span>
+              </div>
+              {currentStep && (
+                <div className="text-xs text-blue-600 mt-1">
+                  Current step: {currentStep}
+                </div>
+              )}
+              
+              {/* Collection rate indicator */}
+              <div className="flex justify-between text-xs text-gray-500 pt-1">
+                <span>Collection rate:</span>
+                <span>
+                  {progress > 5 ? 
+                    `~${Math.round(collectedCount / Math.max(progress / 100 * getEstimatedTime(), 1))} samples/min` : 
+                    'Calculating...'
+                  }
+                </span>
               </div>
             </div>
 
@@ -656,10 +975,16 @@ const DataBuilder = () => {
                 <Button
                   size="lg"
                   variant="outline"
-                  onClick={() => navigate(`/data-viewer/${jobId}`)}
+                  disabled={isCollecting}
+                  onClick={() => {
+                    if (!isCollecting && jobId) {
+                      viewTaskData(jobId);
+                    }
+                  }}
+                  title={isCollecting ? "Cannot view data while collection is in progress" : "View previous data"}
                 >
                   <Eye className="h-5 w-5 mr-2" />
-                  View Previous Data
+                  {isCollecting ? "Collection Active" : "View Previous Data"}
                 </Button>
               </>
             )}
@@ -669,10 +994,16 @@ const DataBuilder = () => {
             size="lg"
             variant="outline"
             className="flex-1"
-            onClick={() => navigate(`/data-viewer/${jobId}`)}
+            disabled={progress < 100}
+            onClick={() => {
+              if (progress >= 100 && jobId) {
+                viewTaskData(jobId);
+              }
+            }}
+            title={progress < 100 ? "Data collection must complete before viewing" : "View collected data"}
           >
             <Eye className="h-5 w-5 mr-2" />
-            View Collected Data
+            {progress < 100 ? "Collection in Progress..." : "View Collected Data"}
           </Button>
         )}
       </div>
@@ -681,35 +1012,39 @@ const DataBuilder = () => {
       {jobId && (
         <Card className="mt-6 border border-gray-200">
           <CardHeader>
-            <CardTitle className="text-lg">Next: Data Processing & Enhancement</CardTitle>
+            <CardTitle className="text-lg">Next: Model Training</CardTitle>
             <CardDescription>
-              Your data has been collected. Now enhance it for training with our Data Fusion Engine (DFE).
+              Your data is ready for training. Select your model and start training your custom AI.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
               <div className="space-y-1">
-                <h4 className="font-semibold">Metra Data Fusion Engine</h4>
+                <h4 className="font-semibold">Your Training Data is Ready</h4>
                 <p className="text-sm text-gray-600">
-                  Automatically clean, structure, and enhance your collected data for optimal training results.
+                  Your collected data is structured and ready for model training. Proceed to select your model.
                 </p>
               </div>
               <Button
                 size="lg"
+                disabled={isCollecting || progress < 100}
                 onClick={() => {
-                  // Navigate to DFE with collected data
-                  navigate(`/dashboard?section=data-engine&data_task=${jobId}`);
+                  if (progress >= 100 && !isCollecting) {
+                    // Navigate directly to Training with collected data
+                    navigate(`/dashboard?section=model-training&data_task=${jobId}`);
+                  }
                 }}
-                className="bg-gray-900 hover:bg-gray-800"
+                className="bg-gray-900 hover:bg-gray-800 disabled:bg-gray-400"
+                title={isCollecting || progress < 100 ? "Complete data collection before training" : "Start model training"}
               >
                 <ArrowRight className="h-5 w-5 mr-2" />
-                Process Data
+                {isCollecting || progress < 100 ? "Collection Required" : "Start Training"}
               </Button>
             </div>
             
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="space-y-2">
-                <h5 className="font-medium text-gray-900">What DFE will do:</h5>
+                <h5 className="font-medium text-gray-900">Ready for Training:</h5>
                 <ul className="space-y-1 text-gray-600">
                   <li className="flex items-center gap-2">
                     <CheckCircle className="h-3 w-3 text-gray-600" />
@@ -746,6 +1081,120 @@ const DataBuilder = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Data Preview Dialog */}
+      <Dialog open={showDataPreview} onOpenChange={setShowDataPreview}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Collected Data Preview</DialogTitle>
+            <DialogDescription>
+              {previewJobId ? `Viewing data for task: ${previewJobId}` : "Preview of collected data"}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {loadingPreview ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                <span>Loading data...</span>
+              </div>
+            ) : previewData.length > 0 ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">
+                    {previewData.length} samples loaded
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const jsonData = JSON.stringify(previewData, null, 2);
+                      navigator.clipboard.writeText(jsonData);
+                      toast({
+                        title: "Copied",
+                        description: "Data copied to clipboard",
+                      });
+                    }}
+                  >
+                    Copy JSON
+                  </Button>
+                </div>
+                
+                <div className="max-h-96 overflow-auto space-y-3">
+                  {previewData.slice(0, 10).map((item, index) => (
+                    <div key={index} className="p-3 bg-gray-50 rounded-lg border">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-medium text-gray-500">
+                          Sample #{index + 1}
+                        </span>
+                        {item.source && (
+                          <Badge variant="outline" className="text-xs">
+                            {item.source}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-700 line-clamp-3">
+                        {item.content || item.text || JSON.stringify(item)}
+                      </p>
+                      {item.url && (
+                        <p className="text-xs text-gray-500 mt-1 truncate">
+                          Source: {item.url}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                  
+                  {previewData.length > 10 && (
+                    <div className="text-center py-2">
+                      <p className="text-sm text-gray-500">
+                        ... and {previewData.length - 10} more samples
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-8">
+                <Database className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                <p className="text-gray-500">No data found for this task</p>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowDataPreview(false)}
+            >
+              Close
+            </Button>
+            {previewData.length > 0 && (
+              <Button
+                onClick={() => {
+                  const jsonData = JSON.stringify(previewData, null, 2);
+                  const blob = new Blob([jsonData], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `collected-data-${previewJobId || Date.now()}.json`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                  
+                  toast({
+                    title: "Downloaded",
+                    description: "Data saved to downloads folder",
+                  });
+                }}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* JSON Dialog */}
       <Dialog open={isJsonDialogOpen} onOpenChange={setIsJsonDialogOpen}>

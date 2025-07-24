@@ -265,6 +265,46 @@ class SupabaseService:
         except Exception as e:
             logger.error(f"Error getting user projects: {e}")
             return []
+    
+    # DFE specific methods
+    async def get_all_completed_jobs(self) -> List[Dict]:
+        """Get all completed data collection jobs for DFE"""
+        try:
+            result = self.client.table('data_collection_jobs').select('*').eq('status', 'completed').order('created_at', desc=True).execute()
+            return result.data or []
+        except Exception as e:
+            logger.error(f"Error getting completed jobs: {e}")
+            return []
+    
+    async def save_collected_data(self, data_item: Dict) -> bool:
+        """Save a single collected data item"""
+        try:
+            data_item['created_at'] = datetime.utcnow().isoformat()
+            result = self.client.table('collected_data').insert(data_item).execute()
+            return result.data is not None
+        except Exception as e:
+            logger.error(f"Error saving collected data item: {e}")
+            return False
+    
+    async def get_collected_data(self, job_id: str, skip: int = 0, limit: int = 100) -> Dict:
+        """Get collected data with pagination info"""
+        try:
+            # Get total count first
+            count_result = self.client.table('collected_data').select('*', count='exact').eq('task_id', job_id).execute()
+            total_count = count_result.count or 0
+            
+            # Get paginated data
+            result = self.client.table('collected_data').select('*').eq('task_id', job_id).range(skip, skip + limit - 1).execute()
+            
+            return {
+                "data": result.data or [],
+                "total": total_count,
+                "skip": skip,
+                "limit": limit
+            }
+        except Exception as e:
+            logger.error(f"Error getting collected data: {e}")
+            return {"data": [], "total": 0, "skip": skip, "limit": limit}
 
 # Global instance
 supabase_service = SupabaseService()

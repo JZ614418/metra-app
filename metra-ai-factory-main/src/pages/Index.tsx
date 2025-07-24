@@ -48,7 +48,7 @@ const Index = () => {
       icon: Globe,
       title: "Text API Deploy",
       subtitle: "Production Ready",
-      description: "Deploy your language model as REST API, integrate with apps, or export for local use",
+      description: "Deploy your language model as secure REST API with authentication and monitoring",
       features: ["REST API", "Streaming Support", "Rate Limiting", "Usage Analytics"]
     }
   ];

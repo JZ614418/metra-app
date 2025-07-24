@@ -46,10 +46,10 @@ const ModelBuilder = () => {
   const location = useLocation();
   const { lastFinalizedTask } = useConversationStore();
   
-  // Get data from URL params (passed from DFE)
+  // Get data from URL params (passed from DataBuilder) or localStorage fallback
   const params = new URLSearchParams(location.search);
-  const dfeTaskId = params.get('dfe_task');
-  const processedCount = params.get('processed_count');
+  const dataTaskId = params.get('data_task') || localStorage.getItem('dataTaskId');
+  const collectedCount = params.get('collected_count') || localStorage.getItem('collectedCount');
   
   // Training state
   const [trainingMode, setTrainingMode] = useState('standard');
@@ -99,7 +99,7 @@ const ModelBuilder = () => {
   const estimateTrainingCost = async () => {
     try {
       const response = await fetch(
-        `${API_URL}/api/v1/training/estimate-cost?data_count=${dataCount}&base_model=${baseModel}&training_mode=${trainingMode}`
+        `${API_URL}/training/estimate-cost?data_count=${dataCount}&base_model=${baseModel}&training_mode=${trainingMode}`
       );
       
       if (response.ok) {
@@ -128,7 +128,7 @@ const ModelBuilder = () => {
     setTrainingLogs([]);
     
     try {
-      const response = await fetch(`${API_URL}/api/v1/training/start`, {
+      const response = await fetch(`${API_URL}/training/start`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -138,7 +138,7 @@ const ModelBuilder = () => {
           task_name: taskName,
           task_description: taskDescription,
           base_model: baseModel,
-          dfe_task_id: dfeTaskId || 'demo',
+          data_builder_job_id: dataTaskId || 'demo',
           training_mode: trainingMode
         })
       });
@@ -172,7 +172,7 @@ const ModelBuilder = () => {
     
     const checkStatus = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/v1/training/status/${jobId}`, {
+        const response = await fetch(`${API_URL}/training/status/${jobId}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -226,7 +226,7 @@ const ModelBuilder = () => {
     setTestOutput('');
     
     try {
-      const response = await fetch(`${API_URL}/api/v1/training/test/${trainingJobId}`, {
+      const response = await fetch(`${API_URL}/training/test/${trainingJobId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -259,7 +259,7 @@ const ModelBuilder = () => {
   };
 
   // Show empty state if no processed data is available
-  if (!dfeTaskId && dataCount === 0) {
+  if (!dataTaskId && dataCount === 0) {
     return (
       <div className="p-8 space-y-6 max-w-6xl mx-auto">
         <div>

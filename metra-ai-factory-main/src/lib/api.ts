@@ -126,6 +126,8 @@ class ApiClient {
       body: JSON.stringify({ task_definition: taskDefinition }),
     })
   }
+
+  // DataBuilder V3 integration
 }
 
 export const api = new ApiClient()
@@ -277,9 +279,23 @@ export const dataCollectionAPI = {
 
 // Data Builder API
 export const dataBuilderAPI = {
+  // V3 Data Collection Methods
+  startDataCollection: async (taskDefinition: any) => {
+    return dataEngineApi.startDataCollection(taskDefinition, taskDefinition.data_volume || 1000);
+  },
+
+  getTaskProgress: async (taskId: string) => {
+    return dataEngineApi.getTaskProgress(taskId);
+  },
+
+  getTaskResult: async (taskId: string, limit: number = 10) => {
+    return dataEngineApi.getTaskResult(taskId, limit);
+  },
+
   async getRecommendation(data: {
     task_info: any;
     selected_model: any;
+    user_data_volume?: number | null;
   }) {
     const response = await fetch(`${API_URL}/data-builder/recommend`, {
       method: 'POST',
@@ -294,6 +310,88 @@ export const dataBuilderAPI = {
     return response.json();
   },
   
+  // V2 API - 修复版本，解决硬编码和性能问题
+  async startCollectionV2(data: {
+    task_info: any;
+    selected_model: any;
+    data_count: number;
+    quality_mode: string;
+    enhanced_mode?: boolean;
+    task_name?: string;
+  }) {
+    const response = await fetch(`${API_URL}/data-builder/collect-v2`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${useAuthStore.getState().token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to start collection');
+    }
+    return response.json();
+  },
+  
+  async getTaskStatusV2(jobId: string) {
+    const response = await fetch(`${API_URL}/data-builder/task/${jobId}/status`, {
+      headers: {
+        'Authorization': `Bearer ${useAuthStore.getState().token}`,
+      },
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to get task status');
+    }
+    return response.json();
+  },
+  
+  async getTaskDataV2(jobId: string, limit = 100, offset = 0) {
+    const params = new URLSearchParams({
+      limit: limit.toString(),
+      offset: offset.toString(),
+    });
+    
+    const response = await fetch(`${API_URL}/data-builder/task/${jobId}/data?${params}`, {
+      headers: {
+        'Authorization': `Bearer ${useAuthStore.getState().token}`,
+      },
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to get task data');
+    }
+    return response.json();
+  },
+  
+  async getUserTasks(skip = 0, limit = 20, status?: string) {
+    const params = new URLSearchParams({
+      skip: skip.toString(),
+      limit: limit.toString(),
+    });
+    
+    if (status) {
+      params.append('status', status);
+    }
+    
+    const response = await fetch(`${API_URL}/data-builder/my-tasks?${params}`, {
+      headers: {
+        'Authorization': `Bearer ${useAuthStore.getState().token}`,
+      },
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to get user tasks');
+    }
+    return response.json();
+  },
+  
+  // Legacy V1 API - 保持兼容性
   async startCollection(data: {
     task_info: any;
     selected_model: any;
@@ -605,7 +703,203 @@ export const deploymentApi = {
   },
 };
 
+// Data Engine API - V3 Quality-Driven Data Pipeline
+export const dataEngineApi = {
+  // Start DataBuilder V3 collection task
+  startDataCollection: async (taskDefinition: {
+    task: string;
+    type: string;
+    language: string;
+    domain: string;
+    description: string;
+    labels: string[];
+    data_volume: number;
+  }, target_samples: number = 1000): Promise<{success: boolean, data?: any, error?: string}> => {
+    try {
+      const response = await fetch(`${API_URL}/data-builder-v3/start`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${useAuthStore.getState().token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          task: taskDefinition.task,
+          type: taskDefinition.type,
+          language: taskDefinition.language,
+          domain: taskDefinition.domain,
+          description: taskDefinition.description,
+          labels: taskDefinition.labels,
+          data_volume: taskDefinition.data_volume || target_samples
+        }),
+      });
+      
+      if (!response.ok) {
+        return { success: false, error: 'Failed to start data collection' };
+      }
+      
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: (error as Error).message };
+    }
+  },
+
+  // Get task progress
+  getTaskProgress: async (taskId: string): Promise<{success: boolean, data?: any, error?: string}> => {
+    try {
+      const response = await fetch(`${API_URL}/data-builder-v3/task/${taskId}/progress`, {
+        headers: {
+          'Authorization': `Bearer ${useAuthStore.getState().token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        return { success: false, error: 'Failed to get task progress' };
+      }
+      
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: (error as Error).message };
+    }
+  },
+
+  // Get all tasks status
+  getAllTasks: async (): Promise<{success: boolean, data?: any, error?: string}> => {
+    try {
+      const response = await fetch(`${API_URL}/data-builder-v3/tasks`, {
+        headers: {
+          'Authorization': `Bearer ${useAuthStore.getState().token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        return { success: false, error: 'Failed to get tasks' };
+      }
+      
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: (error as Error).message };
+    }
+  },
+
+  // Stop a task
+  stopTask: async (taskId: string): Promise<{success: boolean, data?: any, error?: string}> => {
+    try {
+      const response = await fetch(`${API_URL}/data-builder-v3/task/${taskId}/stop`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${useAuthStore.getState().token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        return { success: false, error: 'Failed to stop task' };
+      }
+      
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: (error as Error).message };
+    }
+  },
+
+  // Get system stats
+  getSystemStats: async (): Promise<{success: boolean, data?: any, error?: string}> => {
+    try {
+      const response = await fetch(`${API_URL}/data-builder-v3/stats`, {
+        headers: {
+          'Authorization': `Bearer ${useAuthStore.getState().token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        return { success: false, error: 'Failed to get system stats' };
+      }
+      
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: (error as Error).message };
+    }
+  },
+
+  // Get monitoring status
+  getMonitoringStatus: async (): Promise<{success: boolean, data?: any, error?: string}> => {
+    try {
+      const response = await fetch(`${API_URL}/data-builder-v3/monitoring`, {
+        headers: {
+          'Authorization': `Bearer ${useAuthStore.getState().token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        return { success: false, error: 'Failed to get monitoring status' };
+      }
+      
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: (error as Error).message };
+    }
+  },
+
+  // Get task result data - fetch real samples from completed task
+  getTaskResult: async (taskId: string, limit: number = 10): Promise<{success: boolean, data?: any, error?: string}> => {
+    try {
+      const response = await fetch(`${API_URL}/data-builder-v3/task/${taskId}/result?limit=${limit}`, {
+        headers: {
+          'Authorization': `Bearer ${useAuthStore.getState().token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        return { success: false, error: 'Failed to get task result' };
+      }
+      
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: (error as Error).message };
+    }
+  },
+
+  // Legacy support - automatically convert old task format to new format
+  getDataBuilderTasks: async (): Promise<{success: boolean, data?: any, error?: string}> => {
+    // This is now handled by getAllTasks but maintains backward compatibility
+    return dataEngineApi.getAllTasks();
+  },
+
+};
+
+
 // Types
+export interface ModelRecommendation {
+  model_id: string;
+  model_name: string;
+  description: string;
+  tags: string[];
+  downloads: number;
+  likes: number;
+  author?: string;
+  pipeline_tag?: string;
+  library_name?: string;
+}
+
+export interface ModelRecommendationResponse {
+  recommendations: ModelRecommendation[];
+  total_count: number;
+  search_strategy: string;
+  debug_info?: any;
+}
+
 export interface TrainedModel {
   id: string;
   name: string;
@@ -629,6 +923,8 @@ export interface Deployment {
   export_url?: string;
   created_at: string;
   config: any;
+  api_documentation?: any;
+  model_version?: string;
   metrics: {
     api_calls: number;
     total_requests: number;

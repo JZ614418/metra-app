@@ -44,8 +44,106 @@ htmlcov/
 tmp/
 temp/
 
-# Sensitive files
+# Sensitive files and API keys (CRITICAL!)
 deploy-config.md
 **/example.env
 API_KEYS_CHECKLIST.md
-Metra_Tech_Requirements.md 
+Metra_Tech_Requirements.md
+backend/app/core/config.py
+# NOTE: Create config.example.py without real API keys
+
+# Additional database files
+metra.db
+test.db
+*.sqlite
+
+# Process files
+*.pid
+server.pid
+
+# Environment files
+local_env.sh
+.env.production
+.env.development
+
+# Test and debug files
+test_*.py
+debug_*.py
+local_test*.py
+quick_test*.py
+test_*collection*.py
+verify_*.py
+fix_*.py
+simple_*.py
+enhanced_*.py
+auto_*.py
+monitor_*.py
+system_health_check.py
+
+# Test results and data
+test_*.json
+*_result_*.json
+collected_samples.json
+real_collected_data.json
+training_dataset.jsonl
+tcm_*.json
+enhanced_tcm_*.json
+quality_test_result_*.json
+local_test_result_*.json
+
+# Current job tracking
+current_job.txt
+current_50k_job.txt
+deployments.json
+
+# Development scripts
+start_metra*.sh
+test-*.sh
+verify-*.sh
+fix-*.sh
+deploy-*.sh
+
+# Analysis files
+*_analysis.md
+*_problem_analysis.md
+databuilder_v3_problem_analysis.md
+
+# HTML test files
+test-*.html
+
+# Backup files
+*.backup
+training_service.py.backup
+
+# Python version file
+.python-version
+
+# Virtual environments in subfolders
+*/venv/
+*/env/
+*/ENV/
+
+# Vercel
+.vercel/
+
+# Additional log files
+backend.log
+frontend.log
+server.log
+complete_workflow.log
+backend_test.log
+frontend_test.log
+final_test.log
+test_output.log
+test_1000_output.log
+
+# DeepSeek API (if contains sensitive data)
+backend/deepseek-api/
+
+# Data Builder V3 Config (contains API keys)
+backend/app/services/data_builder_v3/config.json
+
+# Data files
+*.jsonl
+*_data.json
+*_training.jsonl 

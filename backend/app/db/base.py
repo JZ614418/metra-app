@@ -3,4 +3,5 @@
 
 from app.db.base_class import Base  # noqa
 from app.models.user import User  # noqa
-from app.models.conversation import Conversation, Message, TaskDefinition  # noqa 
+from app.models.conversation import Conversation, Message, TaskDefinition  # noqa
+from app.models.data_collection_task import DataCollectionTask, CollectedDataSample  # noqa 

@@ -17,6 +17,8 @@ from app.models.user import User
 from app.services.data_collection import data_collection_service
 from app.services.data_generation import data_generation_service
 from app.services.data_collection_optimizer import OptimizedDataCollector
+from app.services.async_data_collector import async_data_collector
+from app.services.simple_ai_collector import simple_ai_collector
 from app.db.supabase_client import supabase_service
 from openai import AsyncOpenAI
 import logging
@@ -35,6 +37,7 @@ optimizer = OptimizedDataCollector()
 class DataRecommendationRequest(BaseModel):
     task_info: Dict[str, Any] = Field(..., description="Task definition from step 1")
     selected_model: Dict[str, Any] = Field(..., description="Selected model from step 2")
+    user_data_volume: Optional[int] = Field(None, description="User's preferred data volume from task definition")
 
 class DataRecommendation(BaseModel):
     recommended_count: int
@@ -76,13 +79,7 @@ async def init_supabase():
     except Exception as e:
         logger.error(f"Failed to initialize Supabase tables: {e}")
 
-# Call init on module load
-import asyncio
-try:
-    asyncio.create_task(init_supabase())
-except RuntimeError:
-    # If no event loop is running, skip initialization
-    pass
+# Note: Supabase initialization moved to startup event in main.py
 
 @router.post("/recommend", response_model=DataRecommendation)
 async def get_data_recommendation(
@@ -95,25 +92,42 @@ async def get_data_recommendation(
     task_info = request.task_info
     model_info = request.selected_model
     
-    # Create prompt for recommendation
-    prompt = f"""Based on the following task and model, recommend optimal data collection settings:
+    # Extract user preferences
+    user_data_volume = request.user_data_volume
+    task_name = task_info.get('task', 'Unknown task')
+    task_description = task_info.get('description', '')
+    
+    # Create enhanced prompt for recommendation
+    prompt = f"""You are an AI training data expert. Analyze this specific task and provide personalized recommendations:
 
-Task: {task_info.get('task', 'Unknown task')}
+TASK ANALYSIS:
+Task Name: {task_name}
 Task Type: {task_info.get('type', 'classification')}
 Language: {task_info.get('language', 'english')}
 Labels: {task_info.get('labels', [])}
-Description: {task_info.get('description', '')}
+Full Description: {task_description}
 
-Selected Model: {model_info.get('name', 'Unknown')}
-Model Type: {model_info.get('modelType', 'Unknown')}
-Model Size: {model_info.get('size', 'base')}
+USER PREFERENCES:
+Preferred Data Volume: {user_data_volume if user_data_volume else 'Not specified'}
 
-Please recommend:
-1. Optimal data count (with min/max range)
-2. Collection strategy (percentage from web vs AI generation)
-3. Expected time and quality mode
-4. Reasoning for these recommendations
-5. Expected model performance with this data
+SELECTED MODEL:
+Model: {model_info.get('name', 'Unknown')}
+Type: {model_info.get('modelType', 'Unknown')}
+Size: {model_info.get('size', 'base')}
+
+DOMAIN-SPECIFIC ANALYSIS:
+For this specific task "{task_name}" with description "{task_description}":
+1. What domain expertise is required? (medical, legal, technical, etc.)
+2. What data quality challenges are expected?
+3. What specialized data sources would be most valuable?
+
+PERSONALIZED RECOMMENDATIONS:
+Based on the user's preference for {user_data_volume if user_data_volume else '10000-50000'} samples:
+1. Recommended data count (respect user preference if provided)
+2. Optimal collection strategy (web vs AI generation percentages)
+3. Domain-specific data sources
+4. Quality vs speed trade-offs
+5. Expected training time and model performance
 
 Return as JSON with fields: recommended_count, min_count, max_count, collection_strategy, estimated_time_minutes, quality_mode, reasoning, expected_performance, data_sources."""
 
@@ -131,15 +145,18 @@ Return as JSON with fields: recommended_count, min_count, max_count, collection_
         
         recommendation_data = json.loads(response.choices[0].message.content)
         
+        # Use user preference if provided, otherwise use AI recommendation
+        default_count = user_data_volume if user_data_volume else 10000
+        
         # Ensure all required fields
         recommendation = DataRecommendation(
-            recommended_count=recommendation_data.get("recommended_count", 10000),
-            min_count=recommendation_data.get("min_count", 5000),
-            max_count=recommendation_data.get("max_count", 50000),
+            recommended_count=recommendation_data.get("recommended_count", default_count),
+            min_count=recommendation_data.get("min_count", max(default_count // 5, 1000)),
+            max_count=recommendation_data.get("max_count", default_count * 2),
             collection_strategy=recommendation_data.get("collection_strategy", {"web": 0.6, "ai": 0.4}),
             estimated_time_minutes=recommendation_data.get("estimated_time_minutes", 40),
             quality_mode=recommendation_data.get("quality_mode", "balanced"),
-            reasoning=recommendation_data.get("reasoning", "Based on task complexity and model requirements"),
+            reasoning=recommendation_data.get("reasoning", f"AI analysis based on task '{task_name}' and user preferences"),
             expected_performance=recommendation_data.get("expected_performance", "F1 Score: 0.85+"),
             data_sources=recommendation_data.get("data_sources", ["Google", "Wikipedia", "AI Generation"])
         )
@@ -147,15 +164,18 @@ Return as JSON with fields: recommended_count, min_count, max_count, collection_
         return recommendation
         
     except Exception as e:
-        # Fallback recommendation
+        # Use user preference even in fallback
+        fallback_count = user_data_volume if user_data_volume else 10000
+        
+        # Fallback recommendation with user preferences
         return DataRecommendation(
-            recommended_count=10000,
-            min_count=5000,
-            max_count=50000,
+            recommended_count=fallback_count,
+            min_count=max(fallback_count // 5, 1000),
+            max_count=fallback_count * 2,
             collection_strategy={"web": 0.6, "ai": 0.4},
             estimated_time_minutes=40,
             quality_mode="balanced",
-            reasoning="Standard recommendation for text classification tasks",
+            reasoning=f"Fallback recommendation based on task '{task_name}' - AI analysis temporarily unavailable",
             expected_performance="Expected F1 Score: 0.80-0.85",
             data_sources=["Google Search", "Wikipedia", "AI Generation"]
         )
@@ -167,56 +187,112 @@ async def start_data_collection(
     # current_user: User = Depends(deps.get_current_user) # Temporarily disabled for testing
 ):
     """
-    Start unified data collection with intelligent mixing of sources
+    Start data collection with SIMPLE AI SPLITTING - NO QUEUE TIMEOUTS!
+    AI处理完直接推送数据，不走队列等待
     """
-    # job_id = f"collect_{current_user.id}_{datetime.utcnow().timestamp()}"
-    job_id = f"collect_1_{datetime.utcnow().timestamp()}"  # Hardcoded user ID 1 for testing
+    job_id = f"simple_collect_{int(datetime.utcnow().timestamp())}"
+    user_id = "1"  # Hardcoded for testing
     
-    # Initialize job in Supabase
-    job_data = {
-        'job_id': job_id,
-        'user_id': '1', # Hardcoded user ID 1 for testing
-        'status': 'pending',
-        'progress': 0,
-        'total_count': 0,
-        'collected_count': 0,
-        'sources_progress': {},
-        'errors': [],
-        'message': 'Job created',
-        'config': request.dict()
+    # Initialize job status
+    jobs[job_id] = {
+        "job_id": job_id,
+        "user_id": user_id,
+        "status": "started", 
+        "collected_count": 0,
+        "total_count": request.data_count,
+        "progress": 0,
+        "message": "Starting simple AI collection - no timeouts!",
+        "errors": [],
+        "data": []
     }
     
-    # Store in Supabase
-    try:
-        await supabase_service.create_data_collection_job(job_data)
-        logger.info(f"Created data collection job in Supabase: {job_id}")
-    except Exception as e:
-        logger.error(f"Failed to create job in Supabase: {e}")
-        # Fallback to in-memory storage
-        jobs[job_id] = job_data
-    
-    # Start background collection
+    # Start simple AI collection in background
     background_tasks.add_task(
-        run_optimized_collection,
+        run_simple_ai_collection,
         job_id,
-        request,
-        # current_user.id
-        1 # Hardcoded user ID 1 for testing
+        request
     )
     
     return {
         "job_id": job_id,
-        "status": "started",
-        "message": "Data collection started",
-        "estimated_time_minutes": request.data_count // 250  # Rough estimate
+        "status": "started", 
+        "message": "Simple AI collection started - AI will push data when ready!",
+        "estimated_time_minutes": max(request.data_count // 20, 3)  # More realistic estimate
     }
+
+async def run_simple_ai_collection(job_id: str, request: DataCollectionRequest):
+    """
+    Simple AI collection - no queue, direct push
+    AI处理完直接更新job状态，不需要队列等待
+    """
+    
+    async def progress_callback(progress_data):
+        """Update job progress directly"""
+        if job_id in jobs:
+            jobs[job_id].update({
+                "status": progress_data["status"],
+                "collected_count": progress_data["collected"],
+                "progress": int((progress_data["collected"] / progress_data["total"]) * 100),
+                "message": progress_data.get("message", "Processing..."),
+                "updated_at": datetime.utcnow().isoformat()
+            })
+            logger.info(f"Job {job_id} progress: {progress_data['message']}")
+    
+    try:
+        logger.info(f"🚀 Starting simple AI collection for job {job_id}")
+        
+        # Use simple AI collector - no queue timeouts!
+        collected_data = await simple_ai_collector.collect_with_ai_splitting(
+            task_info=request.task_info,
+            target_count=request.data_count,
+            job_id=job_id,
+            progress_callback=progress_callback
+        )
+        
+        # Update final job status
+        if job_id in jobs:
+            jobs[job_id].update({
+                "status": "completed",
+                "collected_count": len(collected_data),
+                "progress": 100,
+                "message": f"Completed! Collected {len(collected_data)} AI-enhanced samples",
+                "data": collected_data,
+                "completed_at": datetime.utcnow().isoformat()
+            })
+            
+        # Store in data_storage for compatibility
+        data_storage[job_id] = collected_data
+        
+        logger.info(f"✅ Simple AI collection completed for job {job_id}: {len(collected_data)} samples")
+        
+    except Exception as e:
+        logger.error(f"Simple AI collection failed for job {job_id}: {e}")
+        if job_id in jobs:
+            jobs[job_id].update({
+                "status": "failed",
+                "message": f"Collection failed: {str(e)}",
+                "errors": [str(e)],
+                "updated_at": datetime.utcnow().isoformat()
+            })
 
 async def run_optimized_collection(job_id: str, request: DataCollectionRequest, user_id: int):
     """Background task for optimized data collection with Supabase storage"""
-    # Get job from Supabase
+    # Create job record in memory first
+    job_record = {
+        'job_id': job_id,
+        'user_id': user_id,
+        'status': 'started',
+        'progress': 0,
+        'collected_count': 0,
+        'total_count': request.data_count,
+        'created_at': datetime.utcnow().isoformat(),
+        'message': 'Initializing data collection'
+    }
+    jobs[job_id] = job_record
+    
+    # Try to get job from Supabase, fallback to in-memory
     job = await supabase_service.get_data_collection_job(job_id)
     if not job:
-        # Fallback to in-memory storage
         job = jobs.get(job_id)
         if not job:
             logger.error(f"Job {job_id} not found in Supabase or memory")
@@ -309,8 +385,8 @@ async def run_optimized_collection(job_id: str, request: DataCollectionRequest, 
         # Collect from Google Search with more aggressive approach
         for i, query in enumerate(base_queries):
             try:
-                # Get search results - request maximum per query (100 results via pagination)
-                results = await service.search_google(query, 100)  # Get up to 100 results per query
+                # Get search results - Google API limit is 10 per request
+                results = await service.search_google(query, 10)  # Get up to 10 results per query
                 
                 # Process each result 
                 for result in results:
@@ -435,15 +511,38 @@ async def get_job_progress(
     job_id: str,
     # current_user: User = Depends(deps.get_current_user) # Temporarily disabled for testing
 ):
-    """Get real-time progress of data collection from Supabase"""
-    # Try to get job from Supabase first
-    job = await supabase_service.get_data_collection_job(job_id)
+    """Get real-time progress - supports both simple and async collectors!"""
     
-    if not job:
-        # Fallback to in-memory storage
-        if job_id not in jobs:
-            raise HTTPException(status_code=404, detail="Job not found")
+    # Check simple collector first (for new jobs)
+    if job_id in jobs:
         job = jobs[job_id]
+        return {
+            "job_id": job_id,
+            "status": job["status"],
+            "progress": job.get("progress", 0),
+            "collected_count": job.get("collected_count", 0),
+            "total_count": job.get("total_count", 0),
+            "sources_progress": {},
+            "message": job.get("message", "Processing..."),
+            "errors": job.get("errors", [])
+        }
+    
+    # Fallback to async collector for older jobs
+    job_status = await async_data_collector.get_job_status(job_id)
+    
+    if not job_status:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    return {
+        "job_id": job_id,
+        "status": job_status["status"],
+        "progress": job_status["progress_percentage"],
+        "collected_count": job_status["collected_count"],
+        "total_count": job_status["total_count"],
+        "sources_progress": {},
+        "message": f"Async processing: {job_status['status']}",
+        "errors": job_status.get("errors", [])
+    }
     
     # if job['user_id'] != current_user.id:
     #     raise HTTPException(status_code=403, detail="Access denied")
@@ -468,28 +567,53 @@ async def get_collected_data(
     source: Optional[str] = None,
     # current_user: User = Depends(deps.get_current_user) # Temporarily disabled for testing
 ):
-    """Get collected data with filtering options"""
-    if job_id not in jobs:
-        raise HTTPException(status_code=404, detail="Job not found")
+    """Get collected data from async job - ALWAYS WORKS!"""
     
-    job = jobs[job_id]
-    # if job['user_id'] != current_user.id:
-    #     raise HTTPException(status_code=403, detail="Access denied")
+    # Try to get data from multiple sources
+    result = None
     
-    if job['status'] != 'completed':
-        raise HTTPException(status_code=400, detail="Job not completed yet")
-    
-    # Get data from Supabase first, fallback to memory storage
+    # First try: async_data_collector (for new v2 jobs)
     try:
-        # Get all data for this job (we'll apply pagination later)
-        data = await supabase_service.get_collected_data(job_id, 0, 10000)  # Get up to 10k items
-        if not data:
-            # Fallback to in-memory storage
-            data = data_storage.get(job_id, [])
+        result = await async_data_collector.get_collected_data(job_id, skip, limit)
+        if result and result["data"]:
+            logger.info(f"Found data via async_data_collector: {len(result['data'])} items")
     except Exception as e:
-        logger.error(f"Failed to get data from Supabase: {e}")
-        # Fallback to in-memory storage
-        data = data_storage.get(job_id, [])
+        logger.warning(f"async_data_collector failed: {e}")
+    
+    # Second try: Check if data exists in memory storage (for v1 jobs)
+    if not result or not result["data"]:
+        if job_id in data_storage and data_storage[job_id]:
+            stored_data = data_storage[job_id]
+            result = {
+                "data": stored_data[skip:skip+limit],
+                "total": len(stored_data),
+                "skip": skip,
+                "limit": limit
+            }
+            logger.info(f"Found data in memory storage: {len(stored_data)} items")
+    
+    # Third try: Direct database query
+    if not result or not result["data"]:
+        try:
+            from app.db.supabase_client import supabase_service
+            db_result = await supabase_service.get_collected_data(job_id, skip, limit)
+            if db_result and db_result.get("data"):
+                result = db_result
+                logger.info(f"Found data in database: {len(db_result['data'])} items")
+        except Exception as e:
+            logger.warning(f"Database query failed: {e}")
+    
+    # If still no data, check job status
+    if not result or not result["data"]:
+        job_status = await async_data_collector.get_job_status(job_id)
+        if not job_status:
+            raise HTTPException(status_code=404, detail="Job not found")
+        elif job_status["status"] != "completed":
+            raise HTTPException(status_code=400, detail=f"Job status: {job_status['status']} - not completed yet")
+        else:
+            raise HTTPException(status_code=404, detail="Job completed but no data found - data may not have been saved properly")
+    
+    data = result["data"]
     
     # Apply filters
     if label:
@@ -566,7 +690,7 @@ Provide actionable insights and recommendations. If the user asks for specific o
         response = await openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are a Data AI assistant helping users analyze and improve their training datasets. Respond in Chinese for Chinese users."},
+                {"role": "system", "content": "You are a Data AI assistant helping users analyze and improve their training datasets. Respond in English."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.5
@@ -575,7 +699,7 @@ Provide actionable insights and recommendations. If the user asks for specific o
         analysis = response.choices[0].message.content
         
         if not analysis:
-            analysis = "数据分析完成。您的数据集包含有用的训练样本，建议继续进行训练。"
+            analysis = "Data analysis completed. Your dataset contains useful training samples, recommend proceeding with training."
         
         # Check if any actions are suggested
         suggested_actions = []

@@ -1,29 +1,46 @@
+# Core Framework
 fastapi==0.104.1
-uvicorn==0.22.0
-watchfiles==0.19.0
-websockets==11.0.3
-sqlalchemy==2.0.23
-psycopg2-binary==2.9.9
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
+uvicorn[standard]==0.22.0
 python-multipart==0.0.6
-email-validator==2.1.0
 pydantic>=2.0,<3.0
 pydantic-settings>=2.0,<3.0
+
+# Database
+sqlalchemy==2.0.36
 alembic==1.12.1
-openai==1.93.0
-huggingface_hub==0.25.0
-# httpx will be installed as a dependency of openai
+supabase==2.16.0
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+email-validator==2.1.0
+
+# HTTP Client & Web Scraping
+aiohttp==3.9.1
 httpx>=0.25.2
 requests==2.31.0
 beautifulsoup4==4.12.2
-resend==0.7.0 
-# DFE Engine
+lxml==4.9.3
+lxml_html_clean
 trafilatura==1.6.1
+
+# AI & Machine Learning
+openai==1.93.0
+# sentence-transformers==2.2.2  # 暂时注释掉
+numpy>=1.26.0  # 更新到支持Python 3.13的版本
+# torch==2.1.1  # 暂时注释掉，因为可能有兼容性问题
+# transformers==4.36.2  # 暂时注释掉
+huggingface_hub==0.25.0
+tenacity==8.2.3
+
 # Training Services
 replicate
-# Additional dependencies for async web scraping
-aiohttp
-# Additional dependencies resolved during startup
-lxml_html_clean
-supabase==2.16.0
+
+# Email Service
+resend==0.7.0
+
+# System Monitoring  
+psutil==5.9.6
+
+# Development
+python-dotenv==1.0.0

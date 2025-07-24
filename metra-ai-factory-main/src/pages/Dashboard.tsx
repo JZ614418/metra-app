@@ -3,7 +3,6 @@ import Sidebar from '@/components/Sidebar';
 import TaskBuilder from '@/components/TaskBuilder';
 import ModelRecommend from '@/components/ModelRecommend';
 import DataBuilder from '@/components/DataBuilder';
-import DataEngine from '@/components/DataEngine';
 import ModelBuilder from '@/components/ModelBuilder';
 import ModelMarket from '@/components/ModelMarket';
 import DeployedModels from '@/components/DeployedModels';
@@ -14,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Activity, MessageSquare, Layers, Database, Sparkles, Rocket, Package, Store, Loader2, LogOut, User, Cpu, Clock } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { api } from '@/lib/api';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
 
 interface UsageStats {
@@ -27,17 +26,32 @@ interface UsageStats {
 }
 
 const Dashboard = () => {
-  const [activeSection, setActiveSection] = useState('prompt-schema');
-  const [showTrainingProcess, setShowTrainingProcess] = useState(false);
+  const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, logout } = useAuthStore();
+  
+  // 从URL参数中获取section，如果没有则默认为'prompt-schema'
+  const params = new URLSearchParams(location.search);
+  const sectionFromUrl = params.get('section');
+  const [activeSection, setActiveSection] = useState(sectionFromUrl || 'prompt-schema');
+  
+  const [showTrainingProcess, setShowTrainingProcess] = useState(false);
   const [usage, setUsage] = useState<UsageStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadUsageStats();
   }, []);
+
+  // 监听URL变化，更新activeSection
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const sectionFromUrl = params.get('section');
+    if (sectionFromUrl) {
+      setActiveSection(sectionFromUrl);
+    }
+  }, [location.search]);
 
   const loadUsageStats = async () => {
     try {
@@ -75,8 +89,6 @@ const Dashboard = () => {
         return <ModelRecommend onSectionChange={setActiveSection} />;
       case 'data-builder':
         return <DataBuilder />;
-      case 'data-engine':
-        return <DataEngine />;
       case 'model-training':
         return <ModelBuilder />;
       case 'model-deploy':
@@ -100,8 +112,6 @@ const Dashboard = () => {
         return 'Model Recommendation';
       case 'data-builder':
         return 'Data Builder';
-      case 'data-engine':
-        return 'Data Fusion Engine';
       case 'model-training':
         return 'Training Center';
       case 'model-deploy':
@@ -125,12 +135,10 @@ const Dashboard = () => {
         return 'Get matched with the best language model - GPT, BERT, T5, LLaMA, or domain-specific LLMs';
       case 'data-builder':
         return 'Collect text data via web scraping, synthetic generation, or upload your text files';
-      case 'data-engine':
-        return 'Intelligent text processing - tokenization, formatting, and dataset preparation for LLM training';
       case 'model-training':
         return 'Fine-tune language models with LoRA or full fine-tuning for your specific NLP task';
       case 'model-deploy':
-        return 'Deploy as text generation API, chatbot interface, or export for local inference';
+        return 'Deploy your trained models as secure REST APIs with authentication and real-time monitoring';
       case 'model-market':
         return 'Share your fine-tuned language models and monetize your NLP solutions';
       case 'profile':
@@ -148,8 +156,6 @@ const Dashboard = () => {
         return Layers;
       case 'data-builder':
         return Database;
-      case 'data-engine':
-        return Sparkles;
       case 'model-training':
         return Rocket;
       case 'model-deploy':
