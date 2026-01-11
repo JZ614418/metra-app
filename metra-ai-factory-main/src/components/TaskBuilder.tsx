@@ -156,12 +156,18 @@ const TaskBuilder = () => {
   };
   
   const handleSendMessage = async () => {
-    if (!currentInput.trim() || !currentConversation || isStreaming) {
-      console.warn("SendMessage cancelled: ", {
-        input: !currentInput.trim(),
-        conv: !currentConversation,
-        streaming: isStreaming,
-      });
+    let conv = currentConversation;
+    // If there is no conversation, create one first.
+    if (!conv) {
+      try {
+        conv = await createConversation("New Task");
+      } catch (error) {
+        console.error("Failed to create conversation on send:", error);
+        return; // Exit if conversation creation fails
+      }
+    }
+
+    if (!currentInput.trim() || isStreaming) {
       return;
     }
 
@@ -169,7 +175,7 @@ const TaskBuilder = () => {
     setCurrentInput('');
     
     try {
-      await sendMessageStream(currentConversation.id, message);
+      await sendMessageStream(conv.id, message);
     } catch (error) {
       console.error('Failed to send message:', error);
     }
